@@ -116,6 +116,31 @@ input[type=text]{width:100%;max-width:360px;padding:10px 12px;border-radius:10px
   .node{max-width:none}
 }
 .refs{display:flex;gap:8px;flex-wrap:wrap}
+/* study guide */
+.card.sec.study{border-style:dashed}
+.tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;margin-top:14px}
+.tcard{display:flex;gap:12px;align-items:flex-start;text-align:left;width:100%;cursor:pointer}
+.tcard:hover{border-color:var(--accent)}
+.ticon{font-size:26px;line-height:1}
+.tbody{display:grid;gap:4px;font-size:14px}
+.tbody b{font-size:16px}
+.svc,.traps{margin:0;padding-left:20px;display:grid;gap:6px}
+.traps{list-style:none;padding:0}
+.rules2{display:grid;gap:8px}
+.rule{display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:10px}
+.rule .cue{font-weight:600}
+.rule .pick{color:var(--ok);font-weight:600}
+.rule .qs{font-size:13px;white-space:nowrap}
+.slist{display:grid;gap:8px;margin-top:12px}
+details.sq{border:1px solid var(--line);border-radius:10px;background:var(--card)}
+details.sq summary{display:flex;gap:12px;align-items:flex-start;padding:10px 12px;cursor:pointer;list-style:none}
+details.sq summary::-webkit-details-marker{display:none}
+details.sq summary .q{flex:1;font-size:14.5px}
+details.sq summary .a{font-size:13px;white-space:nowrap}
+details.sq[open] summary{border-bottom:1px solid var(--line)}
+.sqbody{padding:0 12px 12px}
+.sqbody .opt{cursor:default}
+@media (max-width:560px){ .rule{grid-template-columns:1fr} .rule .qs{white-space:normal} details.sq summary .a{display:none} }
 /* section picker */
 .secs{display:grid;gap:12px;margin-top:14px}
 .card.sec{display:flex;gap:16px;align-items:center}
@@ -192,13 +217,17 @@ const BY_N = Object.fromEntries(ALL.map(q => [q.n, q]));
 /* Sections: Part 1 = first half, Part 2 = second half, Final = everything. Each keeps its own progress.
    The Final exam keeps the original storage key so earlier progress on the full exam is preserved. */
 const SORTED = [...ALL].sort((a, b) => a.n - b.n), HALF = Math.ceil(SORTED.length / 2);
-const rangeOf = list => list.length ? `Q${list[0].n}–Q${list[list.length - 1].n}` : '';
+const rangeOf = list => !list.length ? '' : (list[list.length-1].n - list[0].n + 1 === list.length ? `Q${list[0].n}–Q${list[list.length - 1].n}` : 'topic set');
 const SECTIONS = [
   { id: 'p1',  title: 'Part 1',     key: 'aidevpro-exam-v1-p1', qs: SORTED.slice(0, HALF), blurb: 'The first half of the questions.' },
   { id: 'p2',  title: 'Part 2',     key: 'aidevpro-exam-v1-p2', qs: SORTED.slice(HALF),    blurb: 'The second half of the questions.' },
   { id: 'all', title: 'Final exam', key: 'aidevpro-exam-v1',    qs: SORTED,                blurb: 'Every question. Best taken after Part 1 and Part 2.' }
 ];
-let SEC = SECTIONS[0], Q = SEC.qs, KEY = SEC.key, HOME = true;
+/* Topic practice sections, generated from the study guide (hidden from the home cards). */
+const STUDY = window.STUDY || { topics: [] };
+STUDY.topics.forEach(t => SECTIONS.push({ id: 't-' + t.id, topic: t.id, title: t.icon + ' ' + t.title, key: 'aidevpro-exam-v1-t-' + t.id,
+  qs: t.qs.map(n => BY_N[n]).filter(Boolean).sort((a, b) => a.n - b.n), blurb: 'Topic practice from the study guide.' }));
+let SEC = SECTIONS[0], Q = SEC.qs, KEY = SEC.key, HOME = true, STUDYV = null;
 const NAMEKEY = 'aidevpro-name';
 const savedName = () => { try { return localStorage.getItem(NAMEKEY) || ''; } catch(e){ return ''; } };
 const PASS = 75;
@@ -262,10 +291,10 @@ function topActions(){
     l.onclick=async()=>{ if(await confirmBox('Lock this device?','You will need the password (or recovery code) to open the exam again here. Your answers stay saved.','Lock')){ try{localStorage.removeItem('aidevpro-key');}catch(_){} location.reload(); } };
     el.append(l);
   }
-  if (!HOME){
-    const h=document.createElement('button'); h.className='btn ghost'; h.textContent='← Sections'; h.onclick=()=>{HOME=true;render();window.scrollTo(0,0);}; el.append(h);
+  if (!HOME || STUDYV){
+    const h=document.createElement('button'); h.className='btn ghost'; h.textContent='← Sections'; h.onclick=()=>{HOME=true;STUDYV=null;render();window.scrollTo(0,0);}; el.append(h);
   }
-  if (HOME) return;
+  if (HOME || STUDYV) return;
   if (S.view==='exam'){
     const b=document.createElement('button'); b.className='btn'; b.textContent='Finish '+SEC.title; b.onclick=finishPrompt; el.append(b);
   }
@@ -276,7 +305,8 @@ function topActions(){
 
 function render(){
   topActions();
-  $('.brand small').textContent = HOME ? `Practice exam · ${ALL.length} questions · 3 sections` : `${SEC.title} · ${rangeOf(Q)} · ${Q.length} questions`;
+  $('.brand small').textContent = STUDYV ? `Study guide · ${STUDY.topics.length} topics · ${ALL.length} questions` : HOME ? `Practice exam · ${ALL.length} questions · 3 sections + study guide` : `${SEC.title} · ${SEC.topic ? '' : rangeOf(Q)+' · '}${Q.length} questions`;
+  if (STUDYV) return renderStudy();
   if (HOME) return renderHome();
   if (S.view==='exam') return renderExam();
   if (S.view==='results') return renderResults();
@@ -285,7 +315,7 @@ function render(){
 
 /* ---------- home: section picker ---------- */
 function renderHome(){
-  const st = SECTIONS.map(sec => { const x = peek(sec), ans = Object.keys(x.answers).length, ok = Object.values(x.answers).filter(a => a.ok).length;
+  const st = SECTIONS.filter(sec => !sec.topic).map(sec => { const x = peek(sec), ans = Object.keys(x.answers).length, ok = Object.values(x.answers).filter(a => a.ok).length;
     return { sec, ans, ok, done: !!x.finished, pct: Math.round(ok / sec.qs.length * 100), live: ans ? Math.round(ok / ans * 100) : 0 }; });
   const partsDone = st[0].done && st[1].done;
   app.innerHTML = `
@@ -308,12 +338,112 @@ function renderHome(){
         <div class="progress" aria-hidden="true"><i style="width:${x.ans / x.sec.qs.length * 100}%"></i></div>
       </div>
       <button class="btn ${x.sec.id === 'all' ? (partsDone ? 'primary' : '') : (x.done ? '' : 'primary')} secgo" data-id="${x.sec.id}">${cta}</button>
-    </div>`; }).join('')}</div>`;
+    </div>`; }).join('')}
+    ${STUDY.topics.length ? `<div class="card sec study">
+      <div class="secnum">📚</div>
+      <div class="secbody">
+        <h2>Study guide</h2>
+        <p class="muted" style="margin:2px 0 10px">${STUDY.topics.length} topics · all ${ALL.length} questions grouped by what they test, with concept summaries, "if you see X → choose Y" rules, common traps, diagrams and every explanation. Each topic can also be practised on its own.</p>
+        <div class="row"><span class="pill">${masteryText()}</span></div>
+      </div>
+      <button class="btn primary" id="openStudy">Open guide</button>
+    </div>` : ''}</div>`;
+  const os = $('#openStudy'); if (os) os.onclick = () => { STUDYV = 'index'; render(); window.scrollTo(0, 0); };
   app.querySelectorAll('.secgo').forEach(b => b.onclick = () => {
     useSection(b.dataset.id); HOME = false;
     S.view = S.finished ? 'results' : (Object.keys(S.answers).length ? 'exam' : 'start');
     render(); window.scrollTo(0, 0);
   });
+}
+
+/* ---------- study guide ---------- */
+function latestResults(){ // newest recorded answer per question across all sections
+  const r = {};
+  SECTIONS.forEach(sec => { const x = peek(sec); Object.entries(x.answers).forEach(([n, a]) => { if (!r[n] || (a.t || 0) > (r[n].t || 0)) r[n] = a; }); });
+  return r;
+}
+function masteryText(){ const r = latestResults(), seen = Object.keys(r).length, ok = Object.values(r).filter(a => a.ok).length;
+  return seen ? `Your record: ${ok}/${seen} answered correctly so far` : 'Not used yet'; }
+function topicStats(t, r){ const seen = t.qs.filter(n => r[n]), ok = seen.filter(n => r[n].ok); return { seen: seen.length, ok: ok.length }; }
+
+function renderStudy(){
+  const r = latestResults();
+  if (STUDYV === 'index'){
+    app.innerHTML = `
+    <div class="card hero">
+      <h1>📚 Study guide</h1>
+      <p class="muted" style="margin:0">All ${ALL.length} questions grouped into ${STUDY.topics.length} topics by what they test. Each topic starts with the concepts and decision rules, then walks through every question with the answer, explanation and diagram. Heads-up: this shows the answers. Use it to learn, then test yourself in the sections.</p>
+      <label class="field" for="sq">Search all topics and questions</label>
+      <input type="text" id="sq" placeholder="e.g. guardrail, reranker, AppConfig, PII" style="max-width:none">
+      <div id="sres"></div>
+    </div>
+    <div class="tgrid">${STUDY.topics.map(t => { const st = topicStats(t, r), pct = st.seen ? Math.round(st.ok / st.seen * 100) : null;
+      return `<button class="card tcard" data-t="${t.id}">
+        <span class="ticon">${t.icon}</span>
+        <span class="tbody"><b>${esc(t.title)}</b><span class="muted">${t.qs.length} questions · ${t.rules.length} rules</span>
+        <span class="pill ${pct === null ? 'warn' : pct >= PASS ? 'ok' : 'bad'}">${pct === null ? 'Not practised' : `${st.ok}/${st.seen} correct · ${pct}%`}</span></span>
+      </button>`; }).join('')}</div>`;
+    app.querySelectorAll('.tcard').forEach(b => b.onclick = () => { STUDYV = b.dataset.t; render(); window.scrollTo(0, 0); });
+    $('#sq').oninput = e => {
+      const term = e.target.value.trim().toLowerCase(), out = $('#sres');
+      if (term.length < 3) { out.innerHTML = ''; return; }
+      const hits = [];
+      STUDY.topics.forEach(t => t.qs.forEach(n => { const q = BY_N[n]; if (!q) return;
+        const hay = (q.q + ' ' + Object.values(q.opts).join(' ') + ' ' + q.exp.focus + ' ' + q.exp.why).toLowerCase();
+        if (hay.includes(term)) hits.push([t, q]); }));
+      out.innerHTML = `<p class="muted" style="margin:10px 0 6px">${hits.length} match${hits.length === 1 ? '' : 'es'}</p><div class="review">${hits.slice(0, 40).map(([t, q]) =>
+        `<button class="ritem" data-t="${t.id}" data-n="${q.n}"><span class="pill">#${q.n}</span><span class="q">${esc(q.q.split('\n')[0])}</span><span class="a">${t.icon} · Ans <b>${q.ans}</b></span></button>`).join('')}</div>`;
+      out.querySelectorAll('.ritem').forEach(b => b.onclick = () => { STUDYV = b.dataset.t; render(); openStudyQ(+b.dataset.n); });
+    };
+    return;
+  }
+  const i = STUDY.topics.findIndex(t => t.id === STUDYV), t = STUDY.topics[i], st = topicStats(t, r);
+  const prev = STUDY.topics[i - 1], next = STUDY.topics[i + 1];
+  const qlink = s => s.split(',').map(x => x.trim()).map(n => `<a href="#sq-${n}" class="qref" data-n="${n}">Q${n}</a>`).join(', ');
+  app.innerHTML = `
+  <div class="card">
+    <div class="row" style="justify-content:space-between"><button class="btn ghost" id="toIndex">← All topics</button><span class="muted" style="font-size:14px">Topic ${i + 1} of ${STUDY.topics.length}</span></div>
+    <h1 style="margin:12px 0 4px;font-size:26px;letter-spacing:-.02em">${t.icon} ${esc(t.title)}</h1>
+    <div class="row" style="margin-bottom:10px"><span class="pill">${t.qs.length} questions</span><span class="pill ${st.seen ? (st.ok / st.seen >= PASS / 100 ? 'ok' : 'bad') : 'warn'}">${st.seen ? `You: ${st.ok}/${st.seen} correct` : 'Not practised yet'}</span></div>
+    <p style="margin:0 0 14px">${esc(t.summary)}</p>
+    <div class="row"><button class="btn primary" id="practise">✍️ Practise these ${t.qs.length} questions</button></div>
+  </div>
+  <div class="card" style="margin-top:14px">
+    <h2 class="sec" style="margin-top:0">Key services</h2>
+    <ul class="svc">${t.services.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+    <h2 class="sec">Diagram</h2>
+    ${diagram(t.diagram)}
+    <h2 class="sec">Decision rules: if you see… → choose…</h2>
+    <div class="rules2">${t.rules.map(([cue, pick, qs]) => `<div class="rule"><div class="cue">${esc(cue)}</div><div class="pick">→ ${esc(pick)}</div><div class="qs">${qlink(qs)}</div></div>`).join('')}</div>
+    <h2 class="sec">Common traps</h2>
+    <ul class="traps">${t.traps.map(x => `<li>⚠️ ${esc(x)}</li>`).join('')}</ul>
+  </div>
+  <div class="card" style="margin-top:14px">
+    <div class="row" style="justify-content:space-between"><h2 class="sec" style="margin:0">Questions in this topic</h2><button class="btn ghost" id="expandAll">Expand all</button></div>
+    <div class="slist">${t.qs.map(n => { const q = BY_N[n], a = r[n];
+      return `<details class="sq" id="sq-${n}"><summary><span class="pill ${a ? (a.ok ? 'ok' : 'bad') : ''}">#${n}</span><span class="q">${esc(q.q.split('\n')[0])}</span><span class="a">Answer <b>${q.ans}</b></span></summary>
+        <div class="sqbody">
+          <p class="qtext" style="margin-top:12px">${esc(q.q)}</p>
+          <div class="opts">${Object.keys(q.opts).map(L => `<div class="opt ${q.ans.includes(L) ? 'correct' : ''}"><span class="k">${L}</span><span class="t">${esc(q.opts[L])}</span>${q.ans.includes(L) ? '<span class="tag" style="color:var(--ok)">✓</span>' : ''}</div>`).join('')}</div>
+          ${explanation(q, { sel: '' })}
+        </div></details>`; }).join('')}</div>
+    <div class="navbar">
+      ${prev ? `<button class="btn" id="prevT">← ${prev.icon} ${esc(prev.title)}</button>` : '<span></span>'}
+      ${next ? `<button class="btn primary" id="nextT">${next.icon} ${esc(next.title)} →</button>` : '<button class="btn primary" id="toIndex2">Back to all topics</button>'}
+    </div>
+  </div>`;
+  $('#toIndex').onclick = () => { STUDYV = 'index'; render(); window.scrollTo(0, 0); };
+  const ti2 = $('#toIndex2'); if (ti2) ti2.onclick = () => { STUDYV = 'index'; render(); window.scrollTo(0, 0); };
+  if (prev) $('#prevT').onclick = () => { STUDYV = prev.id; render(); window.scrollTo(0, 0); };
+  if (next) $('#nextT').onclick = () => { STUDYV = next.id; render(); window.scrollTo(0, 0); };
+  $('#expandAll').onclick = e => { const open = e.target.textContent === 'Expand all'; app.querySelectorAll('details.sq').forEach(d => d.open = open); e.target.textContent = open ? 'Collapse all' : 'Expand all'; };
+  app.querySelectorAll('.qref').forEach(a => a.onclick = ev => { ev.preventDefault(); openStudyQ(+a.dataset.n); });
+  $('#practise').onclick = () => { useSection('t-' + t.id); STUDYV = null; HOME = false; S.view = S.finished ? 'results' : (Object.keys(S.answers).length ? 'exam' : 'start'); render(); window.scrollTo(0, 0); };
+}
+function openStudyQ(n){
+  const t = STUDY.topics.find(x => x.qs.includes(n)); if (!t) return;
+  if (STUDYV !== t.id) { STUDYV = t.id; render(); }
+  const d = document.getElementById('sq-' + n); if (d) { d.open = true; d.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
 }
 
 /* ---------- start ---------- */
@@ -524,6 +654,7 @@ function renderResults(){
     <div class="row noprint" style="margin-top:18px">
       ${SEC.id==='p1'?'<button class="btn primary" id="nextSec" data-id="p2">Next: Part 2 →</button>':SEC.id==='p2'?'<button class="btn primary" id="nextSec" data-id="all">Next: Final exam →</button>':''}
       <button class="btn" id="again">Retake ${SEC.title}</button>
+      ${SEC.topic ? '<button class="btn" id="toTopic">📚 Back to topic</button>' : ''}
       <button class="btn ghost" id="toHome">← All sections</button>
     </div>
   </div>`;
@@ -535,6 +666,7 @@ function renderResults(){
   $('#shareBtn').onclick=shareNative;
   $('#again').onclick=async()=>{ if(await confirmBox(`Retake ${SEC.title}?`,`This clears your ${SEC.title} answers and starts fresh. Other sections are not affected.`,'Retake')){ const name=S.name; S=blank(); S.name=name; save(); render(); } };
   $('#toHome').onclick=()=>{ HOME=true; render(); window.scrollTo(0,0); };
+  const tt=$('#toTopic'); if(tt) tt.onclick=()=>{ STUDYV=SEC.topic; render(); window.scrollTo(0,0); };
   const nx=$('#nextSec'); if(nx) nx.onclick=()=>{ useSection(nx.dataset.id); HOME=false; S.view=S.finished?'results':(Object.keys(S.answers).length?'exam':'start'); render(); window.scrollTo(0,0); };
 }
 
@@ -582,7 +714,7 @@ async function shareNative(){
 
 /* ---------- keyboard ---------- */
 document.addEventListener('keydown',e=>{
-  if (HOME || S.view!=='exam' || e.metaKey||e.ctrlKey||e.altKey || /input|textarea/i.test(e.target.tagName) || $('#dlg').open) return;
+  if (HOME || STUDYV || S.view!=='exam' || e.metaKey||e.ctrlKey||e.altKey || /input|textarea/i.test(e.target.tagName) || $('#dlg').open) return;
   const q=BY_N[S.order[S.idx]], k=e.key.toUpperCase();
   if (q.opts[k] && k.length===1){ e.preventDefault(); pick(k); }
   else if (k==='E' && S.answers[q.n]){ showExp=!showExp; renderExam(); }
@@ -619,7 +751,7 @@ render();
     const plain = await crypto.subtle.decrypt({name:'AES-GCM', iv:b64(b.iv)}, key, b64(b.ct));
     const data = JSON.parse(new TextDecoder().decode(plain));
     if (remember) { try { localStorage.setItem(KEYSTORE, toB64(rawKey)); } catch(_){} }
-    window.EXAM = data.EXAM; window.DIAGRAMS = data.DIAGRAMS; window.EXAM_LOCKABLE = true;
+    window.EXAM = data.EXAM; window.DIAGRAMS = data.DIAGRAMS; window.STUDY = data.STUDY; window.EXAM_LOCKABLE = true;
     window.startApp();
   }
   async function tryStored(){
