@@ -217,6 +217,11 @@ const need = q => q.ans.length;
 
 function topActions(){
   const el=$('#topActions'); el.innerHTML='';
+  if (window.EXAM_LOCKABLE){
+    const l=document.createElement('button'); l.className='btn ghost'; l.textContent='🔒 Lock'; l.title='Forget the password on this device';
+    l.onclick=async()=>{ if(await confirmBox('Lock this device?','You will need the password (or recovery code) to open the exam again here. Your answers stay saved.','Lock')){ try{localStorage.removeItem('aidevpro-key');}catch(_){} location.reload(); } };
+    el.append(l);
+  }
   if (S.view==='exam'){
     const b=document.createElement('button'); b.className='btn'; b.textContent='Finish exam'; b.onclick=finishPrompt; el.append(b);
   }
@@ -502,64 +507,98 @@ render();
 };
 </script>
 <script>
-/* Unlock: the public site ships only data.enc.json (AES-256-GCM, key from PBKDF2-SHA256 of your password).
+/* Unlock: the public site ships only data.enc.json. A random data key encrypts the content (AES-256-GCM);
+   that key is wrapped twice: with your password and with your recovery code (PBKDF2-SHA256), so either unlocks it.
    Locally, questions.js/diagrams.js are loaded directly and no password is needed. */
 (() => {
   if (window.EXAM) return window.startApp();
   const KEYSTORE = 'aidevpro-key';
+  const app = document.getElementById('app');
   const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
   const toB64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
+  const escH = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const normCode = s => s.toUpperCase().replace(/[^A-Z0-9]/g, '');
   let blob = null;
   async function getBlob(){ if (!blob) { const r = await fetch('data.enc.json', {cache:'no-cache'}); if (!r.ok) throw new Error('missing'); blob = await r.json(); } return blob; }
-  async function deriveKey(pass, b){
-    const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']);
-    return crypto.subtle.deriveKey({name:'PBKDF2', salt:b64(b.salt), iterations:b.iter, hash:'SHA-256'}, base, {name:'AES-GCM', length:256}, true, ['decrypt']);
+  // Turn a secret (password or recovery code) into the raw data key.
+  async function unwrap(secret, w, iter){
+    const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), 'PBKDF2', false, ['deriveKey']);
+    const kek = await crypto.subtle.deriveKey({name:'PBKDF2', salt:b64(w.salt), iterations:iter, hash:'SHA-256'}, base, {name:'AES-GCM', length:256}, false, ['decrypt']);
+    return crypto.subtle.decrypt({name:'AES-GCM', iv:b64(w.iv)}, kek, b64(w.key));
   }
-  async function openWith(key){
+  async function openWith(rawKey, remember){
     const b = await getBlob();
+    const key = await crypto.subtle.importKey('raw', rawKey, 'AES-GCM', false, ['decrypt']);
     const plain = await crypto.subtle.decrypt({name:'AES-GCM', iv:b64(b.iv)}, key, b64(b.ct));
     const data = JSON.parse(new TextDecoder().decode(plain));
-    window.EXAM = data.EXAM; window.DIAGRAMS = data.DIAGRAMS;
+    if (remember) { try { localStorage.setItem(KEYSTORE, toB64(rawKey)); } catch(_){} }
+    window.EXAM = data.EXAM; window.DIAGRAMS = data.DIAGRAMS; window.EXAM_LOCKABLE = true;
     window.startApp();
   }
   async function tryStored(){
-    try {
-      const raw = localStorage.getItem(KEYSTORE); if (!raw) return false;
-      const key = await crypto.subtle.importKey('raw', b64(raw), 'AES-GCM', false, ['decrypt']);
-      await openWith(key); return true;
-    } catch(e){ try{ localStorage.removeItem(KEYSTORE); }catch(_){} return false; }
+    try { const raw = localStorage.getItem(KEYSTORE); if (!raw) return false; await openWith(b64(raw), false); return true; }
+    catch(e){ try{ localStorage.removeItem(KEYSTORE); }catch(_){} return false; }
   }
-  function showLock(){
-    const app = document.getElementById('app');
-    app.innerHTML = `<div class="card hero" style="max-width:460px;margin:24px auto">
+  const card = inner => `<div class="card hero" style="max-width:460px;margin:24px auto">${inner}</div>`;
+  const errP = '<p id="err" role="alert" style="color:var(--bad);font-weight:600;min-height:1.5em;margin:10px 0 0"></p>';
+  const rememberBox = '<label class="check"><input type="checkbox" id="remember" checked> Remember on this device</label>';
+  function wire(formId, label, getSecret, pick, wrongMsg){
+    document.getElementById(formId).onsubmit = async e => {
+      e.preventDefault();
+      const ub = document.getElementById('ub'), err = document.getElementById('err');
+      const remember = document.getElementById('remember').checked;
+      ub.disabled = true; ub.textContent = 'Unlocking…'; err.textContent = '';
+      try {
+        const b = await getBlob();
+        let raw;
+        try { raw = await unwrap(getSecret(), pick(b), b.iter); } catch(_) { throw new Error('wrong'); }
+        await openWith(raw, remember);
+        if (formId === 'recover') setTimeout(() => alert('Unlocked with your recovery code.\n\nTo set a new password, run ./publish.sh in the exam-app folder on your Mac. Your recovery code stays the same unless you choose a new one.'), 50);
+      } catch(e2){
+        err.textContent = e2.message === 'missing' ? 'Exam data not found.' : wrongMsg;
+        ub.disabled = false; ub.textContent = label;
+      }
+    };
+  }
+  async function showLock(){
+    app.innerHTML = card(`
       <h1>🔒 Locked</h1>
       <p class="muted" style="margin:0 0 6px">Enter your password to open the practice exam. The questions are encrypted and only decrypted in this browser.</p>
       <form id="unlock">
         <label class="field" for="pw">Password</label>
         <input type="password" id="pw" autocomplete="current-password" style="max-width:none" required>
-        <label class="check"><input type="checkbox" id="remember" checked> Remember on this device</label>
-        <p id="err" role="alert" style="color:var(--bad);font-weight:600;min-height:1.5em;margin:10px 0 0"></p>
-        <button class="btn primary" id="ub" type="submit">Unlock</button>
-      </form></div>`;
+        ${rememberBox}${errP}
+        <div class="row" style="justify-content:space-between">
+          <button class="btn primary" id="ub" type="submit">Unlock</button>
+          <button class="btn ghost" type="button" id="forgot">Forgot password?</button>
+        </div>
+      </form>`);
     document.getElementById('pw').focus();
-    document.getElementById('unlock').onsubmit = async e => {
-      e.preventDefault();
-      const ub = document.getElementById('ub'), err = document.getElementById('err');
-      ub.disabled = true; ub.textContent = 'Unlocking…'; err.textContent = '';
-      const remember = document.getElementById('remember').checked;
-      try {
-        const key = await deriveKey(document.getElementById('pw').value, await getBlob());
-        await openWith(key);
-        if (remember) {
-          try { localStorage.setItem(KEYSTORE, toB64(await crypto.subtle.exportKey('raw', key))); } catch(_){}
-        }
-      } catch(e2){
-        err.textContent = e2.message === 'missing' ? 'Exam data not found.' : 'Wrong password. Try again.';
-        ub.disabled = false; ub.textContent = 'Unlock';
-      }
-    };
+    document.getElementById('forgot').onclick = showForgot;
+    wire('unlock', 'Unlock', () => document.getElementById('pw').value, b => b.pw, 'Wrong password. Try again, or use "Forgot password?".');
   }
-  if (!window.crypto || !crypto.subtle) { document.getElementById('app').innerHTML = '<div class="card">This page needs HTTPS to decrypt the exam.</div>'; return; }
+  async function showForgot(){
+    let hint = ''; try { hint = (await getBlob()).hint || ''; } catch(_){}
+    app.innerHTML = card(`
+      <h1>Forgot password?</h1>
+      ${hint ? `<p style="margin:0 0 12px"><strong>Your hint:</strong> ${escH(hint)}</p>` : ''}
+      <p class="muted" style="margin:0 0 6px">Unlock with the <strong>recovery code</strong> shown when you published (format <code>XXXXX-XXXXX-XXXXX-XXXXX</code>). Spaces, dashes and letter case don't matter.</p>
+      <form id="recover">
+        <label class="field" for="rc">Recovery code</label>
+        <input type="text" id="rc" autocomplete="off" autocapitalize="characters" spellcheck="false" style="max-width:none;font-family:ui-monospace,Menlo,monospace" required>
+        ${rememberBox}${errP}
+        <div class="row" style="justify-content:space-between">
+          <button class="btn primary" id="ub" type="submit">Unlock with code</button>
+          <button class="btn ghost" type="button" id="back">← Back to password</button>
+        </div>
+      </form>
+      <details style="margin-top:16px"><summary class="muted" style="cursor:pointer;font-size:14px">Lost the recovery code too?</summary>
+        <p class="muted" style="font-size:14px;margin:8px 0 0">On your Mac, open the exam-app folder and run <code>./publish.sh</code> to set a new password. Run <code>./publish.sh --show-recovery-code</code> to see your recovery code again, or <code>./publish.sh --new-recovery-code</code> to create a new one.</p></details>`);
+    document.getElementById('rc').focus();
+    document.getElementById('back').onclick = showLock;
+    wire('recover', 'Unlock with code', () => normCode(document.getElementById('rc').value), b => b.rc || {}, "That recovery code doesn't match. Check it and try again.");
+  }
+  if (!window.crypto || !crypto.subtle) { app.innerHTML = '<div class="card">This page needs HTTPS to decrypt the exam.</div>'; return; }
   tryStored().then(ok => { if (!ok) showLock(); });
 })();
 </script>
