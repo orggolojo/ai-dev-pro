@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Dev Pro Exam</title>
+<style>
+:root{
+  --bg:#f6f7f9; --card:#ffffff; --ink:#18202b; --muted:#5d6878; --line:#e2e6ec;
+  --accent:#3b5bdb; --accent-ink:#ffffff; --accent-soft:#e8edff;
+  --ok:#1f8a4c; --ok-soft:#e3f5ea; --bad:#c92a2a; --bad-soft:#fde8e8;
+  --warn:#a35f00; --warn-soft:#fff4dc; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 16px rgba(16,24,40,.06);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0f1318; --card:#171c23; --ink:#e7ebf0; --muted:#98a3b3; --line:#2a313b;
+    --accent:#7b93ff; --accent-ink:#0f1318; --accent-soft:#1f2740;
+    --ok:#4cc27e; --ok-soft:#14291d; --bad:#ff7b7b; --bad-soft:#301818;
+    --warn:#f0b35a; --warn-soft:#2d2414; --shadow:none;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+a{color:var(--accent)}
+.wrap{max-width:880px;margin:0 auto;padding:20px 16px 80px}
+header.top{display:flex;align-items:center;gap:12px;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap}
+.brand{font-weight:700;letter-spacing:-.01em}
+.brand small{display:block;font-weight:500;color:var(--muted);font-size:13px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:22px}
+.btn{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:9px 14px;font-weight:600;font-size:15px;display:inline-flex;align-items:center;gap:8px}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn.ghost{background:transparent}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn:focus-visible,.opt:focus-visible,.navcell:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.muted{color:var(--muted)}
+.pill{display:inline-block;font-size:12.5px;font-weight:600;padding:2px 9px;border-radius:999px;background:var(--accent-soft);color:var(--accent)}
+.pill.ok{background:var(--ok-soft);color:var(--ok)} .pill.bad{background:var(--bad-soft);color:var(--bad)} .pill.warn{background:var(--warn-soft);color:var(--warn)}
+
+/* start */
+.hero h1{font-size:28px;line-height:1.2;margin:0 0 6px;letter-spacing:-.02em}
+.rules{margin:18px 0;padding:0;list-style:none;display:grid;gap:10px}
+.rules li{display:flex;gap:10px}
+.rules b{min-width:22px;height:22px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:inline-grid;place-items:center;font-size:12px;flex:none;margin-top:1px}
+label.field{display:block;font-weight:600;font-size:14px;margin:16px 0 6px}
+input[type=text]{width:100%;max-width:360px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit}
+.check{display:flex;gap:8px;align-items:center;margin-top:12px;font-size:15px}
+
+/* progress */
+.progress{height:6px;background:var(--line);border-radius:99px;overflow:hidden;margin:10px 0 0}
+.progress > i{display:block;height:100%;background:var(--accent);transition:width .25s}
+.stats{display:flex;gap:14px;font-size:14px;color:var(--muted);flex-wrap:wrap}
+.stats b{color:var(--ink)}
+
+/* question */
+.qhead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.qnum{font-weight:700;font-size:15px}
+.qtext{white-space:pre-line;font-size:16.5px;margin:0 0 16px}
+.choose{font-size:14px;font-weight:600;color:var(--accent);margin:-4px 0 12px}
+.opts{display:grid;gap:10px}
+.opt{display:flex;gap:12px;align-items:flex-start;text-align:left;width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:12px;background:var(--card);transition:border-color .12s,background .12s}
+.opt:hover:not(:disabled){border-color:var(--accent)}
+.opt .k{flex:none;width:28px;height:28px;border-radius:8px;display:grid;place-items:center;font-weight:700;font-size:14px;background:var(--bg);border:1px solid var(--line)}
+.opt .t{flex:1}
+.opt .tag{flex:none;font-size:12px;font-weight:700;align-self:center}
+.opt.sel{border-color:var(--accent);background:var(--accent-soft)}
+.opt.sel .k{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.opt:disabled{cursor:default}
+.opt.correct{border-color:var(--ok);background:var(--ok-soft)}
+.opt.correct .k{background:var(--ok);color:#fff;border-color:var(--ok)}
+.opt.wrong{border-color:var(--bad);background:var(--bad-soft)}
+.opt.wrong .k{background:var(--bad);color:#fff;border-color:var(--bad)}
+.opt.missed{border-style:dashed;border-color:var(--ok)}
+.verdict{margin-top:16px;padding:12px 14px;border-radius:12px;font-weight:600;display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:space-between}
+.verdict.ok{background:var(--ok-soft);color:var(--ok)} .verdict.bad{background:var(--bad-soft);color:var(--bad)}
+.lockhint{font-size:13px;color:var(--muted);margin-top:10px}
+
+/* explanation */
+.exp{margin-top:14px;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.exp section{padding:14px 16px;border-top:1px solid var(--line)}
+.exp section:first-child{border-top:0}
+.exp h3{margin:0 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.exp p{margin:0}
+.exp .why{background:var(--ok-soft)}
+.exp .why h3{color:var(--ok)}
+.others{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.others li{display:flex;gap:10px}
+.others .k{flex:none;font-weight:700;width:22px;color:var(--bad)}
+.others .mine{font-size:12px;font-weight:700;color:var(--bad);background:var(--bad-soft);padding:1px 7px;border-radius:99px;margin-left:6px;white-space:nowrap}
+.note{background:var(--warn-soft);color:var(--ink)}
+.note h3{color:var(--warn)}
+/* diagrams */
+.diag{margin:0;display:grid;gap:10px}
+.diag figcaption{font-size:14px;color:var(--muted)}
+.lane{border:1px dashed var(--line);border-radius:10px;padding:10px}
+.lane.ok{border-color:var(--ok);background:var(--ok-soft)}
+.lane.bad{border-color:var(--bad);background:var(--bad-soft)}
+.lane .ll{font-size:12.5px;font-weight:700;margin-bottom:8px;color:var(--muted)}
+.lane.ok .ll{color:var(--ok)} .lane.bad .ll{color:var(--bad)}
+.chain{display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+.node{background:var(--card);border:1.5px solid var(--line);border-radius:9px;padding:6px 10px;font-size:13.5px;font-weight:600;line-height:1.3;max-width:220px}
+.node small{display:block;font-weight:500;color:var(--muted);font-size:12px}
+.node.hi{border-color:var(--accent);background:var(--accent-soft)}
+.node.bad{border-color:var(--bad);color:var(--bad)}
+.node.ok{border-color:var(--ok);color:var(--ok)}
+.arr{color:var(--muted);font-weight:700;font-size:16px;flex:none}
+.tree{display:grid;justify-items:center;gap:6px}
+.kids{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+@media (max-width:560px){
+  .chain{flex-direction:column;align-items:stretch}
+  .chain .arr{transform:rotate(90deg);align-self:center}
+  .node{max-width:none}
+}
+.refs{display:flex;gap:8px;flex-wrap:wrap}
+.refs a{font-size:14px;text-decoration:none;border:1px solid var(--line);padding:4px 10px;border-radius:99px;background:var(--card)}
+.refs a:hover{border-color:var(--accent)}
+
+/* nav */
+.navbar{display:flex;justify-content:space-between;gap:10px;margin-top:18px;flex-wrap:wrap}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(38px,1fr));gap:6px;margin-top:12px}
+.navcell{height:34px;border-radius:8px;border:1px solid var(--line);background:var(--card);font-size:13px;font-weight:600;padding:0}
+.navcell.ok{background:var(--ok-soft);border-color:var(--ok);color:var(--ok)}
+.navcell.bad{background:var(--bad-soft);border-color:var(--bad);color:var(--bad)}
+.navcell.cur{outline:2px solid var(--accent);outline-offset:1px}
+details.map{margin-top:14px}
+details.map summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--muted)}
+.kbd{font-size:12px;color:var(--muted);margin-top:14px}
+kbd{font:12px ui-monospace,Menlo,monospace;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:0 5px;background:var(--card)}
+
+/* results */
+.score{display:flex;gap:24px;align-items:center;flex-wrap:wrap}
+.ring{width:150px;height:150px;flex:none}
+.score h2{margin:0;font-size:26px;letter-spacing:-.02em}
+.bars{display:grid;gap:10px;margin-top:8px}
+.bar{display:grid;grid-template-columns:minmax(120px,190px) 1fr 64px;gap:10px;align-items:center;font-size:14px}
+.bar .track{height:10px;background:var(--line);border-radius:99px;overflow:hidden}
+.bar .track i{display:block;height:100%;background:var(--accent)}
+.bar .n{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
+h2.sec{font-size:18px;margin:26px 0 10px}
+.review{display:grid;gap:8px}
+.ritem{display:flex;gap:12px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);text-align:left;width:100%}
+.ritem:hover{border-color:var(--accent)}
+.ritem .q{flex:1;font-size:14.5px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ritem .a{flex:none;font-size:13px;text-align:right;white-space:nowrap}
+.tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.tabs button{border:1px solid var(--line);background:var(--card);border-radius:99px;padding:5px 12px;font-size:14px;font-weight:600}
+.tabs button[aria-pressed=true]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-weight:600;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9}
+.toast.on{opacity:1}
+dialog{border:1px solid var(--line);border-radius:14px;background:var(--card);color:var(--ink);padding:22px;max-width:420px;width:calc(100% - 32px)}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+dialog h3{margin:0 0 8px}
+@media (max-width:560px){
+  .card{padding:16px} .hero h1{font-size:23px}
+  .bar{grid-template-columns:1fr 56px} .bar .track{grid-column:1/-1;order:3}
+  .ring{width:120px;height:120px}
+}
+@media print{
+  body{background:#fff;color:#000} .noprint{display:none!important} .card{box-shadow:none;border-color:#ccc}
+  .ritem{break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">AWS Certified Generative AI Developer – Professional<small>Practice exam · 97 questions</small></div>
+    <div class="row noprint" id="topActions"></div>
+  </header>
+  <main id="app"></main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<dialog id="dlg"><h3 id="dlgT"></h3><p id="dlgB" class="muted"></p><div class="row" style="justify-content:flex-end;margin-top:16px"><button class="btn" id="dlgNo">Cancel</button><button class="btn primary" id="dlgYes">OK</button></div></dialog>
+
+<script>
+window.startApp = () => {
+const Q = window.EXAM.questions, REFS = window.EXAM.refs, DIAG = window.DIAGRAMS || {};
+const BY_N = Object.fromEntries(Q.map(q => [q.n, q]));
+const KEY = 'aidevpro-exam-v1';
+const PASS = 75;
+const TOPICS = [
+  ['Safety & Guardrails', /^(guardrails|apply-guardrail|comprehend|rekognition|macie)/],
+  ['RAG & Knowledge Bases', /^(kb|opensearch|rerank|graphrag|aurora|memorydb|qbusiness)/],
+  ['Agents & Orchestration', /^(agents|agentcore|multi-agent|flows|sfn|mcp|lambda-url|appconfig|prompt-routing|prompt-mgmt|prompt-eng|converse|amplify|qdev|cdk)/],
+  ['Performance & Cost', /^(provisioned|cris$|latency|prompt-caching|bedrock-stream|apigw|lambda-streaming|sdk-retry|transcribe)/],
+  ['Monitoring & Evaluation', /^(bedrock-eval|bedrock-rag-eval|cw-|bedrock-metrics|invocation-logging|xray|clarify|a2i)/],
+  ['Security & Governance', /./]
+];
+const topicOf = q => { const r = q.refs[0] || ''; return TOPICS.find(([, re]) => re.test(r))[0]; };
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const app = $('#app');
+
+let S = load();
+function blank(){ return {order:Q.map(q=>q.n), answers:{}, idx:0, name:'', started:null, finished:null, view:'start'}; }
+function load(){ try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.order && s.order.length === Q.length) return s; } catch(e){} return blank(); }
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){} }
+
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('on'),2200); }
+function confirmBox(title, body, yes='OK'){
+  return new Promise(res => {
+    const d=$('#dlg'); $('#dlgT').textContent=title; $('#dlgB').textContent=body; $('#dlgYes').textContent=yes;
+    const done=v=>{ d.close(); res(v); };
+    $('#dlgYes').onclick=()=>done(true); $('#dlgNo').onclick=()=>done(false); d.oncancel=()=>res(false);
+    d.showModal();
+  });
+}
+
+const answeredCount = () => Object.keys(S.answers).length;
+const correctCount = () => Object.values(S.answers).filter(a => a.ok).length;
+const need = q => q.ans.length;
+
+function topActions(){
+  const el=$('#topActions'); el.innerHTML='';
+  if (S.view==='exam'){
+    const b=document.createElement('button'); b.className='btn'; b.textContent='Finish exam'; b.onclick=finishPrompt; el.append(b);
+  }
+  if (S.view==='results'){
+    const b=document.createElement('button'); b.className='btn'; b.textContent='Back to questions'; b.onclick=()=>{S.view='exam';save();render();}; el.append(b);
+  }
+}
+
+function render(){
+  topActions();
+  if (S.view==='exam') return renderExam();
+  if (S.view==='results') return renderResults();
+  renderStart();
+}
+
+/* ---------- start ---------- */
+function renderStart(){
+  const inProgress = answeredCount() > 0 && !S.finished;
+  app.innerHTML = `
+  <div class="card hero">
+    <h1>Ready when you are.</h1>
+    <p class="muted" style="margin:0">97 scenario questions from your two PDFs (the second PDF stops at Q97). Every answer comes with an explanation that ties back to the question.</p>
+    <ul class="rules">
+      <li><b>1</b><span><strong>Answers lock as soon as you pick them.</strong> On a "choose two/three" question, the answer locks once you've picked that many options.</span></li>
+      <li><b>2</b><span>After you answer, an <strong>Explanation</strong> button appears. It covers what the question is testing, why the correct answer fits, and why each other option fails.</span></li>
+      <li><b>3</b><span>At the end you get a scorecard you can <strong>copy, download as an image, or share</strong>. The pass mark is ${PASS}%, the same as the real exam's 750/1000.</span></li>
+      <li><b>4</b><span>Progress is saved in this browser, so you can close the tab and come back.</span></li>
+    </ul>
+    ${inProgress ? `
+      <div class="row" style="margin-top:8px">
+        <button class="btn primary" id="resume">Resume exam (${answeredCount()}/${Q.length} answered)</button>
+        <button class="btn" id="restart">Start over</button>
+      </div>` : `
+      <label class="field" for="name">Your name (shown on the shared result, optional)</label>
+      <input type="text" id="name" maxlength="40" value="${esc(S.name||'')}" placeholder="e.g. Ivan">
+      <label class="check"><input type="checkbox" id="shuffle"> Shuffle question order</label>
+      <div class="row" style="margin-top:18px">
+        <button class="btn primary" id="go">Start exam</button>
+        ${S.finished ? `<button class="btn" id="seeLast">See last result</button>`:''}
+      </div>`}
+  </div>`;
+  if (inProgress){
+    $('#resume').onclick=()=>{S.view='exam';save();render();};
+    $('#restart').onclick=async()=>{ if(await confirmBox('Start over?','This erases all of your recorded answers.','Start over')){ S=blank(); save(); render(); } };
+  } else {
+    $('#go').onclick=()=>{
+      const name=$('#name').value.trim(), sh=$('#shuffle').checked;
+      S=blank(); S.name=name; S.started=Date.now(); S.view='exam';
+      if (sh){ for(let i=S.order.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[S.order[i],S.order[j]]=[S.order[j],S.order[i]];} }
+      save(); render(); window.scrollTo(0,0);
+    };
+    const last=$('#seeLast'); if(last) last.onclick=()=>{S.view='results';save();render();};
+  }
+}
+
+/* ---------- exam ---------- */
+let pending = []; // in-progress multi-select picks (not yet locked)
+let showExp = false;
+
+function go(i){ S.idx=Math.max(0,Math.min(Q.length-1,i)); pending=[]; showExp=false; save(); renderExam(); window.scrollTo({top:0,behavior:'smooth'}); }
+
+function renderExam(){
+  const n=S.order[S.idx], q=BY_N[n], a=S.answers[n], k=need(q);
+  const letters=Object.keys(q.opts);
+  const ans=answeredCount(), corr=correctCount();
+  const sel = a ? a.sel.split('') : pending;
+  let html = `
+  <div class="card">
+    <div class="stats"><span>Answered <b>${ans}</b>/${Q.length}</span><span>Correct <b>${corr}</b></span><span>Score so far <b>${ans?Math.round(corr/ans*100):0}%</b></span></div>
+    <div class="progress" aria-hidden="true"><i style="width:${ans/Q.length*100}%"></i></div>
+  </div>
+  <div class="card" style="margin-top:14px">
+    <div class="qhead"><span class="qnum">Question ${S.idx+1} of ${Q.length} <span class="muted" style="font-weight:500">· #${q.n}</span></span><span class="pill">${esc(topicOf(q))}</span></div>
+    <p class="qtext">${esc(q.q)}</p>
+    ${k>1 && !a ? `<div class="choose">Choose ${k}. Your answer locks once you've picked ${k} options (${pending.length}/${k} picked).</div>`:''}
+    <div class="opts" role="group" aria-label="Answer options">
+      ${letters.map(L=>{
+        let cls='', tag='';
+        if (a){
+          const isAns=q.ans.includes(L), picked=sel.includes(L);
+          if (isAns && picked){cls='correct';tag='<span class="tag" style="color:var(--ok)">✓ Your pick</span>';}
+          else if (isAns){cls='correct missed';tag='<span class="tag" style="color:var(--ok)">✓ Correct</span>';}
+          else if (picked){cls='wrong';tag='<span class="tag" style="color:var(--bad)">✗ Your pick</span>';}
+        } else if (sel.includes(L)) cls='sel';
+        return `<button class="opt ${cls}" data-l="${L}" ${a?'disabled':''} aria-pressed="${sel.includes(L)}"><span class="k">${L}</span><span class="t">${esc(q.opts[L])}</span>${tag}</button>`;
+      }).join('')}
+    </div>`;
+  if (!a) html += `<div class="lockhint">⚠️ Your first ${k>1?k+' picks are':'click is'} final.</div>`;
+  if (a){
+    html += `<div class="verdict ${a.ok?'ok':'bad'}"><span>${a.ok?'✓ Correct':'✗ Incorrect'} · you chose ${a.sel.split('').join(', ')}${a.ok?'':' · correct answer: '+q.ans.split('').join(', ')}</span>
+      <button class="btn ${showExp?'':'primary'} noprint" id="expBtn" aria-expanded="${showExp}">${showExp?'Hide explanation':'💡 Explanation'}</button></div>`;
+    if (showExp) html += explanation(q, a);
+  }
+  html += `
+    <div class="navbar noprint">
+      <button class="btn" id="prev" ${S.idx===0?'disabled':''}>← Previous</button>
+      <div class="row">
+        <button class="btn ghost" id="nextUn">Next unanswered</button>
+        ${S.idx===Q.length-1 ? `<button class="btn primary" id="fin">Finish & see results</button>` : `<button class="btn ${a?'primary':''}" id="next">Next →</button>`}
+      </div>
+    </div>
+    <details class="map noprint"><summary>Question map</summary><div class="grid">
+      ${S.order.map((m,i)=>{const x=S.answers[m];return `<button class="navcell ${x?(x.ok?'ok':'bad'):''} ${i===S.idx?'cur':''}" data-i="${i}" aria-label="Question ${i+1}${x?(x.ok?', correct':', incorrect'):', unanswered'}">${i+1}</button>`}).join('')}
+    </div></details>
+    <div class="kbd noprint">Keys: <kbd>A</kbd>–<kbd>F</kbd> answer · <kbd>E</kbd> explanation · <kbd>←</kbd> <kbd>→</kbd> navigate</div>
+  </div>`;
+  app.innerHTML = html;
+
+  app.querySelectorAll('.opt').forEach(b => b.onclick = () => pick(b.dataset.l));
+  const eb=$('#expBtn'); if(eb) eb.onclick=()=>{showExp=!showExp; renderExam(); if(showExp) $('.exp')?.scrollIntoView({behavior:'smooth',block:'nearest'});};
+  $('#prev').onclick=()=>go(S.idx-1);
+  const nx=$('#next'); if(nx) nx.onclick=()=>go(S.idx+1);
+  const fn=$('#fin'); if(fn) fn.onclick=finishPrompt;
+  $('#nextUn').onclick=()=>{ for(let s=1;s<=Q.length;s++){const i=(S.idx+s)%Q.length; if(!S.answers[S.order[i]]) return go(i);} toast('Every question is answered.'); };
+  app.querySelectorAll('.navcell').forEach(c=>c.onclick=()=>go(+c.dataset.i));
+}
+
+function pick(L){
+  const n=S.order[S.idx], q=BY_N[n];
+  if (S.answers[n]) return;
+  const k=need(q);
+  if (k===1) pending=[L];
+  else { if (pending.includes(L)) return; pending=[...pending, L]; }
+  if (pending.length>=k){
+    const sel=[...pending].sort().join('');
+    S.answers[n]={sel, ok: sel===q.ans, t:Date.now()};
+    pending=[]; save();
+  }
+  renderExam();
+}
+
+function explanation(q, a){
+  const e=q.exp, picked=a.sel.split('');
+  const others=Object.keys(e.others).sort();
+  const refs=(q.refs||[]).map(r=>REFS[r]).filter(Boolean);
+  return `<div class="exp" role="region" aria-label="Explanation">
+    <section><h3>What the question is really testing</h3><p>${esc(e.focus)}</p></section>
+    <section class="why"><h3>Why ${q.ans.split('').join(' + ')} ${q.ans.length>1?'are':'is'} correct</h3><p>${esc(e.why)}</p></section>
+    ${DIAG[q.n]?`<section><h3>Diagram</h3>${diagram(DIAG[q.n])}</section>`:''}
+    <section><h3>Why the other options are wrong</h3><ul class="others">
+      ${others.map(L=>`<li><span class="k">${L}</span><span>${esc(e.others[L])}${picked.includes(L)?'<span class="mine">your pick</span>':''}</span></li>`).join('')}
+    </ul></section>
+    ${e.note?`<section class="note"><h3>Heads-up</h3><p>${esc(e.note)}</p></section>`:''}
+    <section><h3>Community vote · Sources</h3><p class="muted" style="margin-bottom:8px">${esc(q.votes)}</p>
+      <div class="refs">${refs.map(([t,u])=>`<a href="${esc(u)}" target="_blank" rel="noopener">📄 ${esc(t)}</a>`).join('')}</div></section>
+  </div>`;
+}
+
+/* Diagram spec: {tree:{root,kids[]}, lanes:[{l,t,n[]}], cap}. Node "Title|sub"; prefix * highlight, + good, ! bad. */
+function node(s){
+  let cls=''; const m=s.match(/^[*+!]/); if(m){cls={'*':'hi','+':'ok','!':'bad'}[m[0]]; s=s.slice(1);}
+  const [t,sub]=s.split('|');
+  return `<div class="node ${cls}">${esc(t)}${sub?`<small>${esc(sub)}</small>`:''}</div>`;
+}
+function diagram(d){
+  let h='<figure class="diag">', tree='', lanes='';
+  if (d.tree){
+    const T=d.tree, inner=`<div class="tree">${node(T.root)}<span class="arr" aria-hidden="true">↓</span><div class="kids">${T.kids.map(node).join('')}</div></div>`;
+    tree = (T.t||T.l) ? `<div class="lane ${T.t||''}">${T.l?`<div class="ll">${esc(T.l)}</div>`:''}${inner}</div>` : inner;
+  }
+  (d.lanes||[]).forEach(L=>{
+    lanes+=`<div class="lane ${L.t||''}">${L.l?`<div class="ll">${esc(L.l)}</div>`:''}<div class="chain">${L.n.map(node).join('<span class="arr" aria-hidden="true">→</span>')}</div></div>`;
+  });
+  h += d.lf ? lanes+tree : tree+lanes;
+  if (d.cap) h+=`<figcaption>${esc(d.cap)}</figcaption>`;
+  return h+'</figure>';
+}
+
+async function finishPrompt(){
+  const left=Q.length-answeredCount();
+  const ok = await confirmBox('Finish the exam?', left ? `${left} question${left>1?'s are':' is'} unanswered and will count as wrong. Your recorded answers stay locked.` : 'All questions are answered. You can still review them afterwards.', 'Finish');
+  if (!ok) return;
+  S.finished=Date.now(); S.view='results'; save(); render(); window.scrollTo(0,0);
+}
+
+/* ---------- results ---------- */
+function summary(){
+  const corr=correctCount(), pct=Math.round(corr/Q.length*100);
+  const topics=TOPICS.map(([t])=>{const qs=Q.filter(q=>topicOf(q)===t);return {t,total:qs.length,ok:qs.filter(q=>S.answers[q.n]?.ok).length};}).filter(x=>x.total);
+  const mins=S.started&&S.finished?Math.max(1,Math.round((S.finished-S.started)/60000)):null;
+  return {corr,pct,pass:pct>=PASS,topics,mins,answered:answeredCount()};
+}
+
+let filter='wrong';
+function renderResults(){
+  const s=summary();
+  const R=54, C=2*Math.PI*R, off=C*(1-s.pct/100);
+  const list=S.order.map(n=>BY_N[n]).filter(q=>{const a=S.answers[q.n]; return filter==='all'||(filter==='wrong'?a&&!a.ok:filter==='right'?a&&a.ok:!a);});
+  app.innerHTML=`
+  <div class="card">
+    <div class="score">
+      <svg class="ring" viewBox="0 0 130 130" role="img" aria-label="Score ${s.pct} percent">
+        <circle cx="65" cy="65" r="${R}" fill="none" stroke="var(--line)" stroke-width="12"/>
+        <circle cx="65" cy="65" r="${R}" fill="none" stroke="${s.pass?'var(--ok)':'var(--bad)'}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${off}" transform="rotate(-90 65 65)"/>
+        <text x="65" y="62" text-anchor="middle" font-size="28" font-weight="700" fill="currentColor">${s.pct}%</text>
+        <text x="65" y="84" text-anchor="middle" font-size="12" fill="var(--muted)">${s.corr} / ${Q.length}</text>
+      </svg>
+      <div>
+        <span class="pill ${s.pass?'ok':'bad'}">${s.pass?'PASS':'NOT YET'} · pass mark ${PASS}%</span>
+        <h2 style="margin-top:8px">${S.name?esc(S.name)+', y':'Y'}ou scored ${s.corr} out of ${Q.length}</h2>
+        <p class="muted" style="margin:4px 0 0">${s.answered} answered · ${Q.length-s.answered} skipped${s.mins?` · ${s.mins} min`:''} · ${new Date(S.finished||Date.now()).toLocaleDateString()}</p>
+      </div>
+    </div>
+    <h2 class="sec">By topic</h2>
+    <div class="bars">${s.topics.map(t=>`<div class="bar"><span>${esc(t.t)}</span><span class="track"><i style="width:${t.ok/t.total*100}%;background:${t.ok/t.total>=PASS/100?'var(--ok)':'var(--accent)'}"></i></span><span class="n">${t.ok}/${t.total}</span></div>`).join('')}</div>
+    <h2 class="sec">Share your result</h2>
+    <div class="row noprint">
+      <button class="btn primary" id="shareBtn">📤 Share</button>
+      <button class="btn" id="copyBtn">📋 Copy as text</button>
+      <button class="btn" id="pngBtn">🖼️ Download image</button>
+      <button class="btn" id="printBtn">🖨️ Print / Save PDF</button>
+    </div>
+  </div>
+  <div class="card" style="margin-top:14px">
+    <h2 class="sec" style="margin-top:0">Review</h2>
+    <div class="tabs noprint" role="group" aria-label="Filter review">
+      ${[['wrong','Incorrect'],['right','Correct'],['skip','Unanswered'],['all','All']].map(([k,l])=>`<button data-f="${k}" aria-pressed="${filter===k}">${l}</button>`).join('')}
+    </div>
+    <div class="review">${list.length?list.map(q=>{const a=S.answers[q.n];return `<button class="ritem" data-n="${q.n}"><span class="pill ${a?(a.ok?'ok':'bad'):'warn'}">#${q.n}</span><span class="q">${esc(q.q.split('\n')[0])}</span><span class="a">${a?`You: ${a.sel}`:'Skipped'} · Ans: <b>${q.ans}</b></span></button>`}).join(''):'<p class="muted">Nothing here.</p>'}</div>
+    <div class="row noprint" style="margin-top:18px"><button class="btn" id="again">Take the exam again</button></div>
+  </div>`;
+  app.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{filter=b.dataset.f;renderResults();});
+  app.querySelectorAll('.ritem').forEach(b=>b.onclick=()=>{S.view='exam';const i=S.order.indexOf(+b.dataset.n);save();render();go(i);showExp=!!S.answers[+b.dataset.n];renderExam();});
+  $('#copyBtn').onclick=async()=>{ try{await navigator.clipboard.writeText(shareText());toast('Result copied');}catch(e){fallbackCopy(shareText());} };
+  $('#pngBtn').onclick=()=>cardBlob().then(b=>{const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='ai-dev-pro-result.png';a.click();setTimeout(()=>URL.revokeObjectURL(u),2000);toast('Image downloaded');});
+  $('#printBtn').onclick=()=>{filter='all';renderResults();setTimeout(()=>window.print(),50);};
+  $('#shareBtn').onclick=shareNative;
+  $('#again').onclick=async()=>{ if(await confirmBox('Retake the exam?','This clears the current answers and starts fresh.','Retake')){ const name=S.name; S=blank(); S.name=name; save(); render(); } };
+}
+
+function shareText(){
+  const s=summary();
+  return [`📘 AWS Certified Generative AI Developer – Professional (practice)`,
+    `${S.name?S.name+': ':''}${s.corr}/${Q.length} (${s.pct}%) ${s.pass?'✅ PASS':'❌ Not yet'} · pass mark ${PASS}%`,
+    ...s.topics.map(t=>`• ${t.t}: ${t.ok}/${t.total}`),
+    `${new Date(S.finished||Date.now()).toLocaleDateString()}${s.mins?` · ${s.mins} min`:''}`].join('\n');
+}
+function fallbackCopy(t){ const ta=document.createElement('textarea'); ta.value=t; document.body.append(ta); ta.select(); try{document.execCommand('copy');toast('Result copied');}catch(e){toast('Copy failed');} ta.remove(); }
+
+function cardBlob(){
+  const s=summary(), W=1200, H=630, c=document.createElement('canvas'); c.width=W; c.height=H;
+  const x=c.getContext('2d'); const font=(w,sz)=>`${w} ${sz}px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif`;
+  x.fillStyle='#0f1730'; x.fillRect(0,0,W,H);
+  const g=x.createLinearGradient(0,0,W,H); g.addColorStop(0,'rgba(91,124,250,.35)'); g.addColorStop(1,'rgba(91,124,250,0)'); x.fillStyle=g; x.fillRect(0,0,W,H);
+  x.fillStyle='#aab6d6'; x.font=font(600,26); x.fillText('AWS Certified Generative AI Developer – Professional · Practice exam',60,78);
+  // ring
+  const cx=230, cy=330, r=130, col=s.pass?'#4cc27e':'#ff7b7b';
+  x.lineWidth=26; x.strokeStyle='rgba(255,255,255,.12)'; x.beginPath(); x.arc(cx,cy,r,0,Math.PI*2); x.stroke();
+  x.strokeStyle=col; x.lineCap='round'; x.beginPath(); x.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+Math.PI*2*s.pct/100); x.stroke();
+  x.fillStyle='#fff'; x.textAlign='center'; x.font=font(800,72); x.fillText(s.pct+'%',cx,cy+18);
+  x.font=font(600,26); x.fillStyle='#c9d2ea'; x.fillText(`${s.corr} / ${Q.length}`,cx,cy+60);
+  x.textAlign='left';
+  x.fillStyle=col; x.font=font(800,40); x.fillText(s.pass?'PASS':'NOT YET',440,190);
+  x.fillStyle='#fff'; x.font=font(700,34); x.fillText((S.name?S.name+' · ':'')+`pass mark ${PASS}%`,440,236);
+  // bars
+  let y=292; x.font=font(600,22);
+  s.topics.forEach(t=>{ x.fillStyle='#c9d2ea'; x.fillText(t.t,440,y); x.textAlign='right'; x.fillText(`${t.ok}/${t.total}`,1140,y); x.textAlign='left';
+    x.fillStyle='rgba(255,255,255,.12)'; x.fillRect(440,y+10,700,10); x.fillStyle=t.ok/t.total>=PASS/100?'#4cc27e':'#7b93ff'; x.fillRect(440,y+10,700*t.ok/t.total,10); y+=50; });
+  x.fillStyle='#8592b5'; x.font=font(500,20); x.fillText(new Date(S.finished||Date.now()).toLocaleDateString()+(s.mins?` · ${s.mins} min`:''),60,590);
+  return new Promise(res=>c.toBlob(res,'image/png'));
+}
+async function shareNative(){
+  const text=shareText();
+  try{
+    const blob=await cardBlob(); const file=new File([blob],'ai-dev-pro-result.png',{type:'image/png'});
+    if (navigator.canShare && navigator.canShare({files:[file]})) { await navigator.share({title:'My practice exam result',text,files:[file]}); return; }
+    if (navigator.share){ await navigator.share({title:'My practice exam result',text}); return; }
+  }catch(e){ if(e && e.name==='AbortError') return; }
+  try{await navigator.clipboard.writeText(text);toast('Sharing not supported here, so the result was copied instead');}catch(e){fallbackCopy(text);}
+}
+
+/* ---------- keyboard ---------- */
+document.addEventListener('keydown',e=>{
+  if (S.view!=='exam' || e.metaKey||e.ctrlKey||e.altKey || /input|textarea/i.test(e.target.tagName) || $('#dlg').open) return;
+  const q=BY_N[S.order[S.idx]], k=e.key.toUpperCase();
+  if (q.opts[k] && k.length===1){ e.preventDefault(); pick(k); }
+  else if (k==='E' && S.answers[q.n]){ showExp=!showExp; renderExam(); }
+  else if (e.key==='ArrowRight') go(S.idx+1);
+  else if (e.key==='ArrowLeft') go(S.idx-1);
+});
+
+render();
+};
+</script>
+<script>
+/* Unlock: the public site ships only data.enc.json (AES-256-GCM, key from PBKDF2-SHA256 of your password).
+   Locally, questions.js/diagrams.js are loaded directly and no password is needed. */
+(() => {
+  if (window.EXAM) return window.startApp();
+  const KEYSTORE = 'aidevpro-key';
+  const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+  const toB64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
+  let blob = null;
+  async function getBlob(){ if (!blob) { const r = await fetch('data.enc.json', {cache:'no-cache'}); if (!r.ok) throw new Error('missing'); blob = await r.json(); } return blob; }
+  async function deriveKey(pass, b){
+    const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']);
+    return crypto.subtle.deriveKey({name:'PBKDF2', salt:b64(b.salt), iterations:b.iter, hash:'SHA-256'}, base, {name:'AES-GCM', length:256}, true, ['decrypt']);
+  }
+  async function openWith(key){
+    const b = await getBlob();
+    const plain = await crypto.subtle.decrypt({name:'AES-GCM', iv:b64(b.iv)}, key, b64(b.ct));
+    const data = JSON.parse(new TextDecoder().decode(plain));
+    window.EXAM = data.EXAM; window.DIAGRAMS = data.DIAGRAMS;
+    window.startApp();
+  }
+  async function tryStored(){
+    try {
+      const raw = localStorage.getItem(KEYSTORE); if (!raw) return false;
+      const key = await crypto.subtle.importKey('raw', b64(raw), 'AES-GCM', false, ['decrypt']);
+      await openWith(key); return true;
+    } catch(e){ try{ localStorage.removeItem(KEYSTORE); }catch(_){} return false; }
+  }
+  function showLock(){
+    const app = document.getElementById('app');
+    app.innerHTML = `<div class="card hero" style="max-width:460px;margin:24px auto">
+      <h1>🔒 Locked</h1>
+      <p class="muted" style="margin:0 0 6px">Enter your password to open the practice exam. The questions are encrypted and only decrypted in this browser.</p>
+      <form id="unlock">
+        <label class="field" for="pw">Password</label>
+        <input type="password" id="pw" autocomplete="current-password" style="max-width:none" required>
+        <label class="check"><input type="checkbox" id="remember" checked> Remember on this device</label>
+        <p id="err" role="alert" style="color:var(--bad);font-weight:600;min-height:1.5em;margin:10px 0 0"></p>
+        <button class="btn primary" id="ub" type="submit">Unlock</button>
+      </form></div>`;
+    document.getElementById('pw').focus();
+    document.getElementById('unlock').onsubmit = async e => {
+      e.preventDefault();
+      const ub = document.getElementById('ub'), err = document.getElementById('err');
+      ub.disabled = true; ub.textContent = 'Unlocking…'; err.textContent = '';
+      const remember = document.getElementById('remember').checked;
+      try {
+        const key = await deriveKey(document.getElementById('pw').value, await getBlob());
+        await openWith(key);
+        if (remember) {
+          try { localStorage.setItem(KEYSTORE, toB64(await crypto.subtle.exportKey('raw', key))); } catch(_){}
+        }
+      } catch(e2){
+        err.textContent = e2.message === 'missing' ? 'Exam data not found.' : 'Wrong password. Try again.';
+        ub.disabled = false; ub.textContent = 'Unlock';
+      }
+    };
+  }
+  if (!window.crypto || !crypto.subtle) { document.getElementById('app').innerHTML = '<div class="card">This page needs HTTPS to decrypt the exam.</div>'; return; }
+  tryStored().then(ok => { if (!ok) showLock(); });
+})();
+</script>
+</body>
+</html>
