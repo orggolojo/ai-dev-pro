@@ -127,20 +127,21 @@ input[type=text]{width:100%;max-width:360px;padding:10px 12px;border-radius:10px
 .svc,.traps{margin:0;padding-left:20px;display:grid;gap:6px}
 .traps{list-style:none;padding:0}
 .rules2{display:grid;gap:8px}
-.rule{display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:10px}
+.rule{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:10px}
 .rule .cue{font-weight:600}
 .rule .pick{color:var(--ok);font-weight:600}
-.rule .qs{font-size:13px;white-space:nowrap}
-.slist{display:grid;gap:8px;margin-top:12px}
-details.sq{border:1px solid var(--line);border-radius:10px;background:var(--card)}
-details.sq summary{display:flex;gap:12px;align-items:flex-start;padding:10px 12px;cursor:pointer;list-style:none}
-details.sq summary::-webkit-details-marker{display:none}
-details.sq summary .q{flex:1;font-size:14.5px}
-details.sq summary .a{font-size:13px;white-space:nowrap}
-details.sq[open] summary{border-bottom:1px solid var(--line)}
-.sqbody{padding:0 12px 12px}
-.sqbody .opt{cursor:default}
-@media (max-width:560px){ .rule{grid-template-columns:1fr} .rule .qs{white-space:normal} details.sq summary .a{display:none} }
+.learn section+section{border-top:1px solid var(--line);margin-top:14px;padding-top:2px}
+.learn h3{font-size:16.5px;margin:14px 0 6px}
+.learn p{margin:0 0 8px}
+.learn ul{margin:0 0 6px;padding-left:20px;display:grid;gap:6px}
+.trapl{display:grid;gap:10px}
+.trap{border:1px solid var(--line);border-left:4px solid var(--warn);border-radius:10px;padding:12px 14px;display:grid;gap:6px;font-size:15px}
+.trap .tt{font-weight:650}
+.trap b.why{color:var(--bad)} .trap b.fix{color:var(--ok)}
+.srcs{margin:0;padding-left:20px;display:grid;gap:7px;font-size:15px}
+.hit{animation:hit 2.4s ease-out}
+@keyframes hit{0%,40%{background:var(--accent-soft)}100%{background:transparent}}
+@media (max-width:560px){ .rule{grid-template-columns:1fr} }
 /* section picker */
 .secs{display:grid;gap:12px;margin-top:14px}
 .card.sec{display:flex;gap:16px;align-items:center}
@@ -224,7 +225,7 @@ const SECTIONS = [
   { id: 'all', title: 'Final exam', key: 'aidevpro-exam-v1',    qs: SORTED,                blurb: 'Every question. Best taken after Part 1 and Part 2.' }
 ];
 /* Topic practice sections, generated from the study guide (hidden from the home cards). */
-const STUDY = window.STUDY || { topics: [] };
+const STUDY = window.STUDY || { topics: [] }, LEARN = window.LEARN || {}, LEARN_GENERAL = window.LEARN_GENERAL || [];
 STUDY.topics.forEach(t => SECTIONS.push({ id: 't-' + t.id, topic: t.id, title: t.icon + ' ' + t.title, key: 'aidevpro-exam-v1-t-' + t.id,
   qs: t.qs.map(n => BY_N[n]).filter(Boolean).sort((a, b) => a.n - b.n), blurb: 'Topic practice from the study guide.' }));
 let SEC = SECTIONS[0], Q = SEC.qs, KEY = SEC.key, HOME = true, STUDYV = null;
@@ -343,7 +344,7 @@ function renderHome(){
       <div class="secnum">📚</div>
       <div class="secbody">
         <h2>Study guide</h2>
-        <p class="muted" style="margin:2px 0 10px">${STUDY.topics.length} topics · all ${ALL.length} questions grouped by what they test, with concept summaries, "if you see X → choose Y" rules, common traps, diagrams and every explanation. Each topic can also be practised on its own.</p>
+        <p class="muted" style="margin:2px 0 10px">${STUDY.topics.length} topics mapped to the exam guide: concepts in plain English, key AWS services, diagrams, “if you see X → choose Y” rules, common traps explained, and links to the AWS docs. Each topic can also be practised on its own.</p>
         <div class="row"><span class="pill">${masteryText()}</span></div>
       </div>
       <button class="btn primary" id="openStudy">Open guide</button>
@@ -366,84 +367,106 @@ function masteryText(){ const r = latestResults(), seen = Object.keys(r).length,
   return seen ? `Your record: ${ok}/${seen} answered correctly so far` : 'Not used yet'; }
 function topicStats(t, r){ const seen = t.qs.filter(n => r[n]), ok = seen.filter(n => r[n].ok); return { seen: seen.length, ok: ok.length }; }
 
+function srcLink(s){
+  const [title, url] = typeof s === 'string' ? (REFS[s] || [s, '#']) : s;
+  let h = ''; try { h = new URL(url).hostname; } catch (_) {}
+  const kind = /prescriptive-guidance/.test(url) ? 'AWS Prescriptive Guidance' : /aws-certification|\/certification\//.test(url) ? 'AWS Certification'
+    : /wellarchitected/.test(url) ? 'AWS Well-Architected' : h.endsWith('docs.aws.amazon.com') ? 'AWS docs' : h.endsWith('github.com') ? 'AWS samples on GitHub'
+    : h.includes('modelcontextprotocol') ? 'MCP specification' : h.includes('opensearch.org') ? 'OpenSearch docs' : h.includes('amplify.aws') ? 'Amplify docs'
+    : h.includes('strandsagents') ? 'Strands Agents docs' : h;
+  return `<li><a href="${esc(url)}" target="_blank" rel="noopener">${esc(title)}</a> <span class="muted">· ${esc(kind)}</span></li>`;
+}
+function studyIndex(){
+  const items = [];
+  STUDY.topics.forEach(t => { const l = LEARN[t.id] || {};
+    (l.learn || []).forEach((s, i) => items.push({ t, id: `l-${t.id}-${i}`, label: s.h, text: [s.h, s.p || '', ...(s.pts || [])].join(' ') }));
+    (l.traps || []).forEach((x, i) => items.push({ t, id: `x-${t.id}-${i}`, label: '⚠️ ' + x.t, text: [x.t, x.why, x.fix].join(' ') }));
+    t.rules.forEach(([c, p], i) => items.push({ t, id: `r-${t.id}-${i}`, label: c + ' → ' + p, text: c + ' ' + p }));
+    t.services.forEach((s, i) => items.push({ t, id: `s-${t.id}-${i}`, label: s, text: s }));
+  });
+  return items;
+}
+function goStudy(tid, anchor){
+  STUDYV = tid; render();
+  const el = anchor && document.getElementById(anchor);
+  if (el) { el.classList.add('hit'); el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } else window.scrollTo(0, 0);
+}
+
 function renderStudy(){
   const r = latestResults();
   if (STUDYV === 'index'){
     app.innerHTML = `
     <div class="card hero">
       <h1>📚 Study guide</h1>
-      <p class="muted" style="margin:0">All ${ALL.length} questions grouped into ${STUDY.topics.length} topics by what they test. Each topic starts with the concepts and decision rules, then walks through every question with the answer, explanation and diagram. Heads-up: this shows the answers. Use it to learn, then test yourself in the sections.</p>
-      <label class="field" for="sq">Search all topics and questions</label>
-      <input type="text" id="sq" placeholder="e.g. guardrail, reranker, AppConfig, PII" style="max-width:none">
+      <p class="muted" style="margin:0">${STUDY.topics.length} topics mapped to the AIP-C01 exam guide. Each one explains the concepts in plain English, the AWS services involved, a diagram, “if you see X → choose Y” rules and the common traps with the reasoning behind them, with links to the AWS docs to go deeper. When a topic feels solid, practise its questions.</p>
+      <label class="field" for="sq">Search the learning material</label>
+      <input type="text" id="sq" placeholder="e.g. reranker, callback, AppConfig, PII, MCP" style="max-width:none">
       <div id="sres"></div>
     </div>
-    <div class="tgrid">${STUDY.topics.map(t => { const st = topicStats(t, r), pct = st.seen ? Math.round(st.ok / st.seen * 100) : null;
+    <div class="tgrid">${STUDY.topics.map(t => { const l = LEARN[t.id] || {}, st = topicStats(t, r), pct = st.seen ? Math.round(st.ok / st.seen * 100) : null;
       return `<button class="card tcard" data-t="${t.id}">
         <span class="ticon">${t.icon}</span>
-        <span class="tbody"><b>${esc(t.title)}</b><span class="muted">${t.qs.length} questions · ${t.rules.length} rules</span>
+        <span class="tbody"><b>${esc(t.title)}</b><span class="muted">${esc((l.domain || '').split(' (')[0])} · ${(l.learn || []).length} lessons · ${(l.traps || []).length} traps</span>
         <span class="pill ${pct === null ? 'warn' : pct >= PASS ? 'ok' : 'bad'}">${pct === null ? 'Not practised' : `${st.ok}/${st.seen} correct · ${pct}%`}</span></span>
-      </button>`; }).join('')}</div>`;
-    app.querySelectorAll('.tcard').forEach(b => b.onclick = () => { STUDYV = b.dataset.t; render(); window.scrollTo(0, 0); });
+      </button>`; }).join('')}</div>
+    ${LEARN_GENERAL.length ? `<div class="card" style="margin-top:14px">
+      <h2 class="sec" style="margin-top:0">Official prep and references</h2>
+      <ul class="srcs">${LEARN_GENERAL.map(srcLink).join('')}</ul>
+    </div>` : ''}`;
+    app.querySelectorAll('.tcard').forEach(b => b.onclick = () => goStudy(b.dataset.t));
+    const idx = studyIndex();
     $('#sq').oninput = e => {
       const term = e.target.value.trim().toLowerCase(), out = $('#sres');
       if (term.length < 3) { out.innerHTML = ''; return; }
-      const hits = [];
-      STUDY.topics.forEach(t => t.qs.forEach(n => { const q = BY_N[n]; if (!q) return;
-        const hay = (q.q + ' ' + Object.values(q.opts).join(' ') + ' ' + q.exp.focus + ' ' + q.exp.why).toLowerCase();
-        if (hay.includes(term)) hits.push([t, q]); }));
-      out.innerHTML = `<p class="muted" style="margin:10px 0 6px">${hits.length} match${hits.length === 1 ? '' : 'es'}</p><div class="review">${hits.slice(0, 40).map(([t, q]) =>
-        `<button class="ritem" data-t="${t.id}" data-n="${q.n}"><span class="pill">#${q.n}</span><span class="q">${esc(q.q.split('\n')[0])}</span><span class="a">${t.icon} · Ans <b>${q.ans}</b></span></button>`).join('')}</div>`;
-      out.querySelectorAll('.ritem').forEach(b => b.onclick = () => { STUDYV = b.dataset.t; render(); openStudyQ(+b.dataset.n); });
+      const hits = idx.filter(x => x.text.toLowerCase().includes(term));
+      out.innerHTML = `<p class="muted" style="margin:10px 0 6px">${hits.length} match${hits.length === 1 ? '' : 'es'}</p><div class="review">${hits.slice(0, 40).map(x =>
+        `<button class="ritem" data-t="${x.t.id}" data-a="${x.id}"><span class="pill">${x.t.icon}</span><span class="q">${esc(x.label)}</span><span class="a">${esc(x.t.title)}</span></button>`).join('')}</div>`;
+      out.querySelectorAll('.ritem').forEach(b => b.onclick = () => goStudy(b.dataset.t, b.dataset.a));
     };
     return;
   }
-  const i = STUDY.topics.findIndex(t => t.id === STUDYV), t = STUDY.topics[i], st = topicStats(t, r);
+  const i = STUDY.topics.findIndex(t => t.id === STUDYV), t = STUDY.topics[i], l = LEARN[t.id] || { learn: [], traps: [], sources: [] }, st = topicStats(t, r);
   const prev = STUDY.topics[i - 1], next = STUDY.topics[i + 1];
-  const qlink = s => s.split(',').map(x => x.trim()).map(n => `<a href="#sq-${n}" class="qref" data-n="${n}">Q${n}</a>`).join(', ');
   app.innerHTML = `
   <div class="card">
     <div class="row" style="justify-content:space-between"><button class="btn ghost" id="toIndex">← All topics</button><span class="muted" style="font-size:14px">Topic ${i + 1} of ${STUDY.topics.length}</span></div>
     <h1 style="margin:12px 0 4px;font-size:26px;letter-spacing:-.02em">${t.icon} ${esc(t.title)}</h1>
-    <div class="row" style="margin-bottom:10px"><span class="pill">${t.qs.length} questions</span><span class="pill ${st.seen ? (st.ok / st.seen >= PASS / 100 ? 'ok' : 'bad') : 'warn'}">${st.seen ? `You: ${st.ok}/${st.seen} correct` : 'Not practised yet'}</span></div>
+    ${l.domain ? `<p class="muted" style="margin:0 0 10px;font-size:14px">📘 Exam guide: ${esc(l.domain)}</p>` : ''}
     <p style="margin:0 0 14px">${esc(t.summary)}</p>
-    <div class="row"><button class="btn primary" id="practise">✍️ Practise these ${t.qs.length} questions</button></div>
+    <div class="row"><button class="btn primary" id="practise">✍️ Practise this topic</button><span class="pill ${st.seen ? (st.ok / st.seen >= PASS / 100 ? 'ok' : 'bad') : 'warn'}">${st.seen ? `Your record: ${st.ok}/${st.seen} correct` : 'Not practised yet'}</span></div>
+  </div>
+  <div class="card learn" style="margin-top:14px">
+    <h2 class="sec" style="margin-top:0">Learn</h2>
+    ${l.learn.map((s, k) => `<section id="l-${t.id}-${k}"><h3>${esc(s.h)}</h3>${s.p ? `<p>${esc(s.p)}</p>` : ''}${s.pts ? `<ul>${s.pts.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}</section>`).join('')}
   </div>
   <div class="card" style="margin-top:14px">
     <h2 class="sec" style="margin-top:0">Key services</h2>
-    <ul class="svc">${t.services.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+    <ul class="svc">${t.services.map((x, k) => `<li id="s-${t.id}-${k}">${esc(x)}</li>`).join('')}</ul>
     <h2 class="sec">Diagram</h2>
     ${diagram(t.diagram)}
     <h2 class="sec">Decision rules: if you see… → choose…</h2>
-    <div class="rules2">${t.rules.map(([cue, pick, qs]) => `<div class="rule"><div class="cue">${esc(cue)}</div><div class="pick">→ ${esc(pick)}</div><div class="qs">${qlink(qs)}</div></div>`).join('')}</div>
-    <h2 class="sec">Common traps</h2>
-    <ul class="traps">${t.traps.map(x => `<li>⚠️ ${esc(x)}</li>`).join('')}</ul>
+    <div class="rules2">${t.rules.map(([cue, pick], k) => `<div class="rule" id="r-${t.id}-${k}"><div class="cue">${esc(cue)}</div><div class="pick">→ ${esc(pick)}</div></div>`).join('')}</div>
   </div>
   <div class="card" style="margin-top:14px">
-    <div class="row" style="justify-content:space-between"><h2 class="sec" style="margin:0">Questions in this topic</h2><button class="btn ghost" id="expandAll">Expand all</button></div>
-    <div class="slist">${t.qs.map(n => { const q = BY_N[n], a = r[n];
-      return `<details class="sq" id="sq-${n}"><summary><span class="pill ${a ? (a.ok ? 'ok' : 'bad') : ''}">#${n}</span><span class="q">${esc(q.q.split('\n')[0])}</span><span class="a">Answer <b>${q.ans}</b></span></summary>
-        <div class="sqbody">
-          <p class="qtext" style="margin-top:12px">${esc(q.q)}</p>
-          <div class="opts">${Object.keys(q.opts).map(L => `<div class="opt ${q.ans.includes(L) ? 'correct' : ''}"><span class="k">${L}</span><span class="t">${esc(q.opts[L])}</span>${q.ans.includes(L) ? '<span class="tag" style="color:var(--ok)">✓</span>' : ''}</div>`).join('')}</div>
-          ${explanation(q, { sel: '' })}
-        </div></details>`; }).join('')}</div>
-    <div class="navbar">
-      ${prev ? `<button class="btn" id="prevT">← ${prev.icon} ${esc(prev.title)}</button>` : '<span></span>'}
-      ${next ? `<button class="btn primary" id="nextT">${next.icon} ${esc(next.title)} →</button>` : '<button class="btn primary" id="toIndex2">Back to all topics</button>'}
-    </div>
+    <h2 class="sec" style="margin-top:0">Common traps</h2>
+    <div class="trapl">${l.traps.map((x, k) => `<div class="trap" id="x-${t.id}-${k}">
+      <div class="tt">⚠️ ${esc(x.t)}</div>
+      <div><b class="why">Why it's wrong:</b> ${esc(x.why)}</div>
+      <div><b class="fix">Do this instead:</b> ${esc(x.fix)}</div></div>`).join('')}</div>
+  </div>
+  ${l.sources.length ? `<div class="card" style="margin-top:14px">
+    <h2 class="sec" style="margin-top:0">Go deeper: AWS docs and guides</h2>
+    <ul class="srcs">${l.sources.map(srcLink).join('')}</ul>
+  </div>` : ''}
+  <div class="navbar">
+    ${prev ? `<button class="btn" id="prevT">← ${prev.icon} ${esc(prev.title)}</button>` : '<span></span>'}
+    ${next ? `<button class="btn primary" id="nextT">${next.icon} ${esc(next.title)} →</button>` : '<button class="btn primary" id="toIndex2">Back to all topics</button>'}
   </div>`;
-  $('#toIndex').onclick = () => { STUDYV = 'index'; render(); window.scrollTo(0, 0); };
-  const ti2 = $('#toIndex2'); if (ti2) ti2.onclick = () => { STUDYV = 'index'; render(); window.scrollTo(0, 0); };
-  if (prev) $('#prevT').onclick = () => { STUDYV = prev.id; render(); window.scrollTo(0, 0); };
-  if (next) $('#nextT').onclick = () => { STUDYV = next.id; render(); window.scrollTo(0, 0); };
-  $('#expandAll').onclick = e => { const open = e.target.textContent === 'Expand all'; app.querySelectorAll('details.sq').forEach(d => d.open = open); e.target.textContent = open ? 'Collapse all' : 'Expand all'; };
-  app.querySelectorAll('.qref').forEach(a => a.onclick = ev => { ev.preventDefault(); openStudyQ(+a.dataset.n); });
+  $('#toIndex').onclick = () => goStudy('index');
+  const ti2 = $('#toIndex2'); if (ti2) ti2.onclick = () => goStudy('index');
+  if (prev) $('#prevT').onclick = () => goStudy(prev.id);
+  if (next) $('#nextT').onclick = () => goStudy(next.id);
   $('#practise').onclick = () => { useSection('t-' + t.id); STUDYV = null; HOME = false; S.view = S.finished ? 'results' : (Object.keys(S.answers).length ? 'exam' : 'start'); render(); window.scrollTo(0, 0); };
-}
-function openStudyQ(n){
-  const t = STUDY.topics.find(x => x.qs.includes(n)); if (!t) return;
-  if (STUDYV !== t.id) { STUDYV = t.id; render(); }
-  const d = document.getElementById('sq-' + n); if (d) { d.open = true; d.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
 }
 
 /* ---------- start ---------- */
@@ -751,7 +774,7 @@ render();
     const plain = await crypto.subtle.decrypt({name:'AES-GCM', iv:b64(b.iv)}, key, b64(b.ct));
     const data = JSON.parse(new TextDecoder().decode(plain));
     if (remember) { try { localStorage.setItem(KEYSTORE, toB64(rawKey)); } catch(_){} }
-    window.EXAM = data.EXAM; window.DIAGRAMS = data.DIAGRAMS; window.STUDY = data.STUDY; window.EXAM_LOCKABLE = true;
+    window.EXAM = data.EXAM; window.DIAGRAMS = data.DIAGRAMS; window.STUDY = data.STUDY; window.LEARN = data.LEARN; window.LEARN_GENERAL = data.LEARN_GENERAL; window.EXAM_LOCKABLE = true;
     window.startApp();
   }
   async function tryStored(){
