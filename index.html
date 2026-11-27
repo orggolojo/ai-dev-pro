@@ -116,6 +116,15 @@ input[type=text]{width:100%;max-width:360px;padding:10px 12px;border-radius:10px
   .node{max-width:none}
 }
 .refs{display:flex;gap:8px;flex-wrap:wrap}
+/* section picker */
+.secs{display:grid;gap:12px;margin-top:14px}
+.card.sec{display:flex;gap:16px;align-items:center}
+.card.sec.final{border-color:var(--accent)}
+.secnum{flex:none;width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-weight:800;font-size:20px;background:var(--accent-soft);color:var(--accent)}
+.secbody{flex:1;min-width:0}
+.secbody h2{margin:0;font-size:20px;letter-spacing:-.01em}
+.secgo{flex:none}
+@media (max-width:560px){ .card.sec{flex-wrap:wrap} .secgo{width:100%;justify-content:center} }
 .refs a{font-size:14px;text-decoration:none;border:1px solid var(--line);padding:4px 10px;border-radius:99px;background:var(--card)}
 .refs a:hover{border-color:var(--accent)}
 
@@ -178,9 +187,20 @@ dialog h3{margin:0 0 8px}
 
 <script>
 window.startApp = () => {
-const Q = window.EXAM.questions, REFS = window.EXAM.refs, DIAG = window.DIAGRAMS || {};
-const BY_N = Object.fromEntries(Q.map(q => [q.n, q]));
-const KEY = 'aidevpro-exam-v1';
+const ALL = window.EXAM.questions, REFS = window.EXAM.refs, DIAG = window.DIAGRAMS || {};
+const BY_N = Object.fromEntries(ALL.map(q => [q.n, q]));
+/* Sections: Part 1 = first half, Part 2 = second half, Final = everything. Each keeps its own progress.
+   The Final exam keeps the original storage key so earlier progress on the full exam is preserved. */
+const SORTED = [...ALL].sort((a, b) => a.n - b.n), HALF = Math.ceil(SORTED.length / 2);
+const rangeOf = list => list.length ? `Q${list[0].n}–Q${list[list.length - 1].n}` : '';
+const SECTIONS = [
+  { id: 'p1',  title: 'Part 1',     key: 'aidevpro-exam-v1-p1', qs: SORTED.slice(0, HALF), blurb: 'The first half of the questions.' },
+  { id: 'p2',  title: 'Part 2',     key: 'aidevpro-exam-v1-p2', qs: SORTED.slice(HALF),    blurb: 'The second half of the questions.' },
+  { id: 'all', title: 'Final exam', key: 'aidevpro-exam-v1',    qs: SORTED,                blurb: 'Every question. Best taken after Part 1 and Part 2.' }
+];
+let SEC = SECTIONS[0], Q = SEC.qs, KEY = SEC.key, HOME = true;
+const NAMEKEY = 'aidevpro-name';
+const savedName = () => { try { return localStorage.getItem(NAMEKEY) || ''; } catch(e){ return ''; } };
 const PASS = 75;
 const TOPICS = [
   ['Safety & Guardrails', /^(guardrails|apply-guardrail|comprehend|rekognition|macie)/],
@@ -197,7 +217,7 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>'
 const app = $('#app');
 
 let S = load();
-function blank(){ return {order:Q.map(q=>q.n), answers:{}, idx:0, name:'', started:null, finished:null, view:'start'}; }
+function blank(){ return {order:Q.map(q=>q.n), answers:{}, idx:0, name:savedName(), started:null, finished:null, view:'start'}; }
 function load(){
   try {
     const s = JSON.parse(localStorage.getItem(KEY));
@@ -218,6 +238,8 @@ function load(){
   return blank();
 }
 function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){} }
+function useSection(id){ SEC = SECTIONS.find(x => x.id === id); Q = SEC.qs; KEY = SEC.key; S = load(); }
+function peek(sec){ const pQ = Q, pK = KEY; Q = sec.qs; KEY = sec.key; const st = load(); Q = pQ; KEY = pK; return st; }
 
 function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('on'),2200); }
 function confirmBox(title, body, yes='OK'){
@@ -240,8 +262,12 @@ function topActions(){
     l.onclick=async()=>{ if(await confirmBox('Lock this device?','You will need the password (or recovery code) to open the exam again here. Your answers stay saved.','Lock')){ try{localStorage.removeItem('aidevpro-key');}catch(_){} location.reload(); } };
     el.append(l);
   }
+  if (!HOME){
+    const h=document.createElement('button'); h.className='btn ghost'; h.textContent='← Sections'; h.onclick=()=>{HOME=true;render();window.scrollTo(0,0);}; el.append(h);
+  }
+  if (HOME) return;
   if (S.view==='exam'){
-    const b=document.createElement('button'); b.className='btn'; b.textContent='Finish exam'; b.onclick=finishPrompt; el.append(b);
+    const b=document.createElement('button'); b.className='btn'; b.textContent='Finish '+SEC.title; b.onclick=finishPrompt; el.append(b);
   }
   if (S.view==='results'){
     const b=document.createElement('button'); b.className='btn'; b.textContent='Back to questions'; b.onclick=()=>{S.view='exam';save();render();}; el.append(b);
@@ -250,9 +276,44 @@ function topActions(){
 
 function render(){
   topActions();
+  $('.brand small').textContent = HOME ? `Practice exam · ${ALL.length} questions · 3 sections` : `${SEC.title} · ${rangeOf(Q)} · ${Q.length} questions`;
+  if (HOME) return renderHome();
   if (S.view==='exam') return renderExam();
   if (S.view==='results') return renderResults();
   renderStart();
+}
+
+/* ---------- home: section picker ---------- */
+function renderHome(){
+  const st = SECTIONS.map(sec => { const x = peek(sec), ans = Object.keys(x.answers).length, ok = Object.values(x.answers).filter(a => a.ok).length;
+    return { sec, ans, ok, done: !!x.finished, pct: Math.round(ok / sec.qs.length * 100), live: ans ? Math.round(ok / ans * 100) : 0 }; });
+  const partsDone = st[0].done && st[1].done;
+  app.innerHTML = `
+  <div class="card hero">
+    <h1>Choose a section</h1>
+    <p class="muted" style="margin:0">Work through <strong>Part 1</strong> and <strong>Part 2</strong> first, then take the <strong>Final exam</strong> with all ${ALL.length} questions. Each section keeps its own answers, score and shareable result.</p>
+  </div>
+  <div class="secs">${st.map((x, i) => {
+    const status = x.done ? `<span class="pill ${x.pct >= PASS ? 'ok' : 'bad'}">Finished · ${x.pct}% ${x.pct >= PASS ? 'PASS' : 'NOT YET'}</span>`
+      : x.ans ? `<span class="pill">In progress · ${x.ans}/${x.sec.qs.length} answered · ${x.live}% so far</span>`
+      : `<span class="pill warn">Not started</span>`;
+    const cta = x.done ? 'See result' : x.ans ? 'Resume' : 'Start';
+    const tip = x.sec.id === 'all' ? (partsDone ? '<span class="pill ok">✓ Parts 1 & 2 finished. Ready for the final.</span>' : '<span class="muted" style="font-size:13px">Tip: finish Part 1 and Part 2 first.</span>') : '';
+    return `<div class="card sec ${x.sec.id === 'all' ? 'final' : ''}">
+      <div class="secnum">${x.sec.id === 'all' ? '★' : i + 1}</div>
+      <div class="secbody">
+        <h2>${x.sec.title}</h2>
+        <p class="muted" style="margin:2px 0 10px">${rangeOf(x.sec.qs)} · ${x.sec.qs.length} questions. ${x.sec.blurb}</p>
+        <div class="row">${status}${tip}</div>
+        <div class="progress" aria-hidden="true"><i style="width:${x.ans / x.sec.qs.length * 100}%"></i></div>
+      </div>
+      <button class="btn ${x.sec.id === 'all' ? (partsDone ? 'primary' : '') : (x.done ? '' : 'primary')} secgo" data-id="${x.sec.id}">${cta}</button>
+    </div>`; }).join('')}</div>`;
+  app.querySelectorAll('.secgo').forEach(b => b.onclick = () => {
+    useSection(b.dataset.id); HOME = false;
+    S.view = S.finished ? 'results' : (Object.keys(S.answers).length ? 'exam' : 'start');
+    render(); window.scrollTo(0, 0);
+  });
 }
 
 /* ---------- start ---------- */
@@ -260,8 +321,8 @@ function renderStart(){
   const inProgress = answeredCount() > 0 && !S.finished;
   app.innerHTML = `
   <div class="card hero">
-    <h1>Ready when you are.</h1>
-    <p class="muted" style="margin:0">97 scenario questions from your two PDFs (the second PDF stops at Q97). Every answer comes with an explanation that ties back to the question.</p>
+    <h1>${SEC.title}: ready when you are.</h1>
+    <p class="muted" style="margin:0">${Q.length} scenario questions (${rangeOf(Q)}). ${SEC.blurb} Every answer comes with an explanation that ties back to the question.</p>
     <ul class="rules">
       <li><b>1</b><span><strong>Answers lock as soon as you pick them.</strong> On a "choose two/three" question, the answer locks once you've picked that many options.</span></li>
       <li><b>2</b><span>After you answer, an <strong>Explanation</strong> button appears. It covers what the question is testing, why the correct answer fits, and why each other option fails.</span></li>
@@ -287,6 +348,7 @@ function renderStart(){
   } else {
     $('#go').onclick=()=>{
       const name=$('#name').value.trim(), sh=$('#shuffle').checked;
+      try { localStorage.setItem(NAMEKEY, name); } catch(e){}
       S=blank(); S.name=name; S.started=Date.now(); S.view='exam';
       if (sh){ for(let i=S.order.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[S.order[i],S.order[j]]=[S.order[j],S.order[i]];} }
       save(); render(); window.scrollTo(0,0);
@@ -438,7 +500,7 @@ function renderResults(){
         <text x="65" y="84" text-anchor="middle" font-size="12" fill="var(--muted)">${s.corr} / ${Q.length}</text>
       </svg>
       <div>
-        <span class="pill ${s.pass?'ok':'bad'}">${s.pass?'PASS':'NOT YET'} · pass mark ${PASS}%</span>
+        <span class="pill">${SEC.title} · ${rangeOf(Q)}</span> <span class="pill ${s.pass?'ok':'bad'}">${s.pass?'PASS':'NOT YET'} · pass mark ${PASS}%</span>
         <h2 style="margin-top:8px">${S.name?esc(S.name)+', y':'Y'}ou scored ${s.corr} out of ${Q.length}</h2>
         <p class="muted" style="margin:4px 0 0">${s.answered} answered · ${Q.length-s.answered} skipped${s.mins?` · ${s.mins} min`:''} · ${new Date(S.finished||Date.now()).toLocaleDateString()}</p>
       </div>
@@ -459,20 +521,26 @@ function renderResults(){
       ${[['wrong','Incorrect'],['right','Correct'],['skip','Unanswered'],['all','All']].map(([k,l])=>`<button data-f="${k}" aria-pressed="${filter===k}">${l}</button>`).join('')}
     </div>
     <div class="review">${list.length?list.map(q=>{const a=S.answers[q.n];return `<button class="ritem" data-n="${q.n}"><span class="pill ${a?(a.ok?'ok':'bad'):'warn'}">#${q.n}</span><span class="q">${esc(q.q.split('\n')[0])}</span><span class="a">${a?`You: ${a.sel}`:'Skipped'} · Ans: <b>${q.ans}</b></span></button>`}).join(''):'<p class="muted">Nothing here.</p>'}</div>
-    <div class="row noprint" style="margin-top:18px"><button class="btn" id="again">Take the exam again</button></div>
+    <div class="row noprint" style="margin-top:18px">
+      ${SEC.id==='p1'?'<button class="btn primary" id="nextSec" data-id="p2">Next: Part 2 →</button>':SEC.id==='p2'?'<button class="btn primary" id="nextSec" data-id="all">Next: Final exam →</button>':''}
+      <button class="btn" id="again">Retake ${SEC.title}</button>
+      <button class="btn ghost" id="toHome">← All sections</button>
+    </div>
   </div>`;
   app.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{filter=b.dataset.f;renderResults();});
   app.querySelectorAll('.ritem').forEach(b=>b.onclick=()=>{S.view='exam';const i=S.order.indexOf(+b.dataset.n);save();render();go(i);showExp=!!S.answers[+b.dataset.n];renderExam();});
   $('#copyBtn').onclick=async()=>{ try{await navigator.clipboard.writeText(shareText());toast('Result copied');}catch(e){fallbackCopy(shareText());} };
-  $('#pngBtn').onclick=()=>cardBlob().then(b=>{const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='ai-dev-pro-result.png';a.click();setTimeout(()=>URL.revokeObjectURL(u),2000);toast('Image downloaded');});
+  $('#pngBtn').onclick=()=>cardBlob().then(b=>{const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=`ai-dev-pro-${SEC.id}-result.png`;a.click();setTimeout(()=>URL.revokeObjectURL(u),2000);toast('Image downloaded');});
   $('#printBtn').onclick=()=>{filter='all';renderResults();setTimeout(()=>window.print(),50);};
   $('#shareBtn').onclick=shareNative;
-  $('#again').onclick=async()=>{ if(await confirmBox('Retake the exam?','This clears the current answers and starts fresh.','Retake')){ const name=S.name; S=blank(); S.name=name; save(); render(); } };
+  $('#again').onclick=async()=>{ if(await confirmBox(`Retake ${SEC.title}?`,`This clears your ${SEC.title} answers and starts fresh. Other sections are not affected.`,'Retake')){ const name=S.name; S=blank(); S.name=name; save(); render(); } };
+  $('#toHome').onclick=()=>{ HOME=true; render(); window.scrollTo(0,0); };
+  const nx=$('#nextSec'); if(nx) nx.onclick=()=>{ useSection(nx.dataset.id); HOME=false; S.view=S.finished?'results':(Object.keys(S.answers).length?'exam':'start'); render(); window.scrollTo(0,0); };
 }
 
 function shareText(){
   const s=summary();
-  return [`📘 AWS Certified Generative AI Developer – Professional (practice)`,
+  return [`📘 AWS Certified Generative AI Developer – Professional (practice) · ${SEC.title} (${rangeOf(Q)})`,
     `${S.name?S.name+': ':''}${s.corr}/${Q.length} (${s.pct}%) ${s.pass?'✅ PASS':'❌ Not yet'} · pass mark ${PASS}%`,
     ...s.topics.map(t=>`• ${t.t}: ${t.ok}/${t.total}`),
     `${new Date(S.finished||Date.now()).toLocaleDateString()}${s.mins?` · ${s.mins} min`:''}`].join('\n');
@@ -484,7 +552,8 @@ function cardBlob(){
   const x=c.getContext('2d'); const font=(w,sz)=>`${w} ${sz}px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif`;
   x.fillStyle='#0f1730'; x.fillRect(0,0,W,H);
   const g=x.createLinearGradient(0,0,W,H); g.addColorStop(0,'rgba(91,124,250,.35)'); g.addColorStop(1,'rgba(91,124,250,0)'); x.fillStyle=g; x.fillRect(0,0,W,H);
-  x.fillStyle='#aab6d6'; x.font=font(600,26); x.fillText('AWS Certified Generative AI Developer – Professional · Practice exam',60,78);
+  x.fillStyle='#aab6d6'; x.font=font(600,26); x.fillText('AWS Certified Generative AI Developer – Professional · Practice',60,78);
+  x.fillStyle='#7b93ff'; x.font=font(700,24); x.fillText(`${SEC.title} · ${rangeOf(Q)} · ${Q.length} questions`,60,114);
   // ring
   const cx=230, cy=330, r=130, col=s.pass?'#4cc27e':'#ff7b7b';
   x.lineWidth=26; x.strokeStyle='rgba(255,255,255,.12)'; x.beginPath(); x.arc(cx,cy,r,0,Math.PI*2); x.stroke();
@@ -513,7 +582,7 @@ async function shareNative(){
 
 /* ---------- keyboard ---------- */
 document.addEventListener('keydown',e=>{
-  if (S.view!=='exam' || e.metaKey||e.ctrlKey||e.altKey || /input|textarea/i.test(e.target.tagName) || $('#dlg').open) return;
+  if (HOME || S.view!=='exam' || e.metaKey||e.ctrlKey||e.altKey || /input|textarea/i.test(e.target.tagName) || $('#dlg').open) return;
   const q=BY_N[S.order[S.idx]], k=e.key.toUpperCase();
   if (q.opts[k] && k.length===1){ e.preventDefault(); pick(k); }
   else if (k==='E' && S.answers[q.n]){ showExp=!showExp; renderExam(); }
