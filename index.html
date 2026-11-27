@@ -577,11 +577,31 @@ render();
     document.getElementById('forgot').onclick = showForgot;
     wire('unlock', 'Unlock', () => document.getElementById('pw').value, b => b.pw, 'Wrong password. Try again, or use "Forgot password?".');
   }
+  async function getConfig(){ try { const r = await fetch('config.json', {cache:'no-cache'}); return r.ok ? await r.json() : {}; } catch(_){ return {}; } }
+  async function emailCode(url){
+    const btn = document.getElementById('mailBtn'), msg = document.getElementById('mailMsg');
+    btn.disabled = true; btn.textContent = 'Sending…'; msg.style.color = ''; msg.textContent = '';
+    let r = null;
+    try { r = await (await fetch(url, {method:'POST', body:'send'})).json(); } catch(_){ r = {ok:false, reason:'network'}; }
+    const m = {
+      cooldown: `A code was emailed in the last few minutes. Check your inbox and spam folder, or try again in ${r.waitMin||10} min.`,
+      'daily-limit': 'The daily email limit was reached. Try again tomorrow, or run ./publish.sh --show-recovery-code on your Mac.',
+      'not-configured': 'The mailer is missing its recovery code. Add RECOVERY_CODE in the Apps Script settings.',
+      network: "Couldn't reach the mailer. Check your connection and try again.",
+      busy: 'The mailer is busy. Try again in a moment.'
+    };
+    if (r.ok){ msg.style.color = 'var(--ok)'; msg.textContent = '✓ Sent! Check your email for "AI Dev Pro recovery code" (look in spam too), then enter the code below.'; btn.textContent = 'Sent'; document.getElementById('rc').focus(); }
+    else { msg.style.color = 'var(--bad)'; msg.textContent = m[r.reason] || 'Something went wrong. Try again.'; btn.disabled = false; btn.textContent = '📧 Email me my recovery code'; }
+  }
   async function showForgot(){
     let hint = ''; try { hint = (await getBlob()).hint || ''; } catch(_){}
+    const mailer = (await getConfig()).mailer || '';
     app.innerHTML = card(`
       <h1>Forgot password?</h1>
       ${hint ? `<p style="margin:0 0 12px"><strong>Your hint:</strong> ${escH(hint)}</p>` : ''}
+      ${mailer ? `<div style="margin:0 0 14px;padding:12px;border:1px solid var(--line);border-radius:10px">
+        <button class="btn primary" type="button" id="mailBtn">📧 Email me my recovery code</button>
+        <p id="mailMsg" role="status" class="muted" style="margin:8px 0 0;font-size:14px">The code is sent to the exam owner's email address.</p></div>` : ''}
       <p class="muted" style="margin:0 0 6px">Unlock with the <strong>recovery code</strong> shown when you published (format <code>XXXXX-XXXXX-XXXXX-XXXXX</code>). Spaces, dashes and letter case don't matter.</p>
       <form id="recover">
         <label class="field" for="rc">Recovery code</label>
@@ -594,7 +614,7 @@ render();
       </form>
       <details style="margin-top:16px"><summary class="muted" style="cursor:pointer;font-size:14px">Lost the recovery code too?</summary>
         <p class="muted" style="font-size:14px;margin:8px 0 0">On your Mac, open the exam-app folder and run <code>./publish.sh</code> to set a new password. Run <code>./publish.sh --show-recovery-code</code> to see your recovery code again, or <code>./publish.sh --new-recovery-code</code> to create a new one.</p></details>`);
-    document.getElementById('rc').focus();
+    if (mailer) document.getElementById('mailBtn').onclick = () => emailCode(mailer); else document.getElementById('rc').focus();
     document.getElementById('back').onclick = showLock;
     wire('recover', 'Unlock with code', () => normCode(document.getElementById('rc').value), b => b.rc || {}, "That recovery code doesn't match. Check it and try again.");
   }
