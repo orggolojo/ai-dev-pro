@@ -198,7 +198,25 @@ const app = $('#app');
 
 let S = load();
 function blank(){ return {order:Q.map(q=>q.n), answers:{}, idx:0, name:'', started:null, finished:null, view:'start'}; }
-function load(){ try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.order && s.order.length === Q.length) return s; } catch(e){} return blank(); }
+function load(){
+  try {
+    const s = JSON.parse(localStorage.getItem(KEY));
+    if (s && Array.isArray(s.order)) {
+      // Keep saved answers when questions are added/removed: drop unknown numbers, append new ones.
+      const known = new Set(Q.map(q => q.n));
+      s.order = s.order.filter(n => known.has(n));
+      const have = new Set(s.order);
+      let added = 0;
+      Q.forEach(q => { if (!have.has(q.n)) { s.order.push(q.n); added++; } });
+      s.answers = s.answers || {};
+      Object.keys(s.answers).forEach(n => { if (!known.has(+n)) delete s.answers[n]; });
+      if (added && s.finished) { s.finished = null; if (s.view === 'results') s.view = 'start'; } // new questions reopen a finished exam
+      s.idx = Math.min(s.idx || 0, Q.length - 1);
+      return s;
+    }
+  } catch(e){}
+  return blank();
+}
 function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){} }
 
 function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove('on'),2200); }
